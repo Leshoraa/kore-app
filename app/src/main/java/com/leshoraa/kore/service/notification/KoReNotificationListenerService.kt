@@ -8,6 +8,7 @@ import com.leshoraa.kore.core.ble.BleManager
 import com.leshoraa.kore.core.ble.BleOperationQueue
 import com.leshoraa.kore.data.repository.BleRepositoryImpl
 import com.leshoraa.kore.data.repository.NotificationRepositoryImpl
+import com.leshoraa.kore.core.common.ServiceLocator
 import com.leshoraa.kore.domain.model.NotificationEvent
 import com.leshoraa.kore.domain.usecase.ProcessNotificationUseCase
 import kotlinx.coroutines.*
@@ -36,15 +37,9 @@ class KoReNotificationListenerService : NotificationListenerService() {
     override fun onCreate() {
         super.onCreate()
         
-        // Dependency Graph setup
-        bleManager = BleManager(applicationContext, BleOperationQueue())
-        val bleRepository = BleRepositoryImpl(bleManager)
-        val notificationRepository = NotificationRepositoryImpl()
-        
-        processNotificationUseCase = ProcessNotificationUseCase(
-            bleRepository = bleRepository,
-            notificationRepository = notificationRepository
-        )
+        // Dependency Graph setup via ServiceLocator
+        bleManager = ServiceLocator.provideBleManager(applicationContext)
+        processNotificationUseCase = ServiceLocator.provideProcessNotificationUseCase(applicationContext)
         
         startCleanupWatchdog()
     }
