@@ -4,7 +4,12 @@ import android.app.Notification
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
+import com.leshoraa.kore.core.ble.BleManager
+import com.leshoraa.kore.core.ble.BleOperationQueue
+import com.leshoraa.kore.data.repository.BleRepositoryImpl
+import com.leshoraa.kore.data.repository.NotificationRepositoryImpl
 import com.leshoraa.kore.domain.model.NotificationEvent
+import com.leshoraa.kore.domain.usecase.ProcessNotificationUseCase
 import kotlinx.coroutines.*
 import java.util.concurrent.ConcurrentHashMap
 
@@ -23,6 +28,26 @@ class KoReNotificationListenerService : NotificationListenerService() {
     
     // Hash-ring ring for deduplication: [Key -> LastProcessedTimestamp]
     private val seenEvents = ConcurrentHashMap<Int, Long>()
+
+    // Simple manual DI for Stage 3
+    private lateinit var processNotificationUseCase: ProcessNotificationUseCase
+    private lateinit var bleManager: BleManager
+
+    override fun onCreate() {
+        super.onCreate()
+        
+        // Dependency Graph setup
+        bleManager = BleManager(applicationContext, BleOperationQueue())
+        val bleRepository = BleRepositoryImpl(bleManager)
+        val notificationRepository = NotificationRepositoryImpl()
+        
+        processNotificationUseCase = ProcessNotificationUseCase(
+            bleRepository = bleRepository,
+            notificationRepository = notificationRepository
+        )
+        
+        startCleanupWatchdog()
+    }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         val packageName = sbn.packageName
@@ -63,17 +88,17 @@ class KoReNotificationListenerService : NotificationListenerService() {
     }
 
     private suspend fun processEvent(event: NotificationEvent) {
-        if (event.isGroupSummary) {
-            Log.d(TAG, "Filtering group summary from ${event.packageName}")
-            return
+        Log.d(TAG, "Invoking ProcessNotificationUseCase for ${event.packageName}")
+        processNotificationUseCase(event).onFailure { error ->
+            Log.e(TAG, "Processing failed for ${event.packageName}", error)
         }
-
-        Log.i(TAG, "Processing Event: ${event.packageName} | ${event.title}")
-        // TODO: In Stage 3, wire this to UseCase -> Dispatcher -> BleManager
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        if (::bleManager.isInitialized) {
+            bleManager.disconnect()
+        }
         serviceJob.cancel()
     }
     
@@ -86,10 +111,5 @@ class KoReNotificationListenerService : NotificationListenerService() {
                 seenEvents.entries.removeIf { now - it.value > 5000 } // Remove keys older than 5s
             }
         }
-    }
-    
-    override fun onCreate() {
-        super.onCreate()
-        startCleanupWatchdog()
     }
 }
