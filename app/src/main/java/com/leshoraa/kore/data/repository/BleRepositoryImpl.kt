@@ -13,8 +13,10 @@ class BleRepositoryImpl(
     private val dispatchEngine: BleDispatchEngine = BleDispatchEngine(bleManager)
 ) : BleRepository {
 
-    override fun connect(address: String) {
-        bleManager.connect(address)
+    override val connectionState = bleManager.connectionState
+
+    override fun connect(address: String, deviceName: String?) {
+        bleManager.connect(address, deviceName)
     }
 
     override fun disconnect() {

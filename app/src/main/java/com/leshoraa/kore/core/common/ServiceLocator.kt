@@ -3,11 +3,14 @@ package com.leshoraa.kore.core.common
 import android.content.Context
 import com.leshoraa.kore.core.ble.BleManager
 import com.leshoraa.kore.core.ble.BleScanner
+import com.leshoraa.kore.core.database.AppDatabase
 import com.leshoraa.kore.data.repository.BleRepositoryImpl
 import com.leshoraa.kore.data.repository.NotificationRepositoryImpl
+import com.leshoraa.kore.data.repository.RuleRepositoryImpl
 import com.leshoraa.kore.domain.repository.BleRepository
 import com.leshoraa.kore.domain.repository.NotificationRepository
-import com.leshoraa.kore.domain.usecase.ProcessNotificationUseCase
+import com.leshoraa.kore.domain.repository.RuleRepository
+import com.leshoraa.kore.domain.usecase.*
 
 /**
  * Simple Service Locator for manual Dependency Injection.
@@ -15,6 +18,13 @@ import com.leshoraa.kore.domain.usecase.ProcessNotificationUseCase
 object ServiceLocator {
     private var bleManager: BleManager? = null
     private var bleScanner: BleScanner? = null
+    private var database: AppDatabase? = null
+
+    private fun provideDatabase(context: Context): AppDatabase {
+        return database ?: synchronized(this) {
+            database ?: AppDatabase.getDatabase(context).also { database = it }
+        }
+    }
 
     fun provideBleManager(context: Context): BleManager {
         return bleManager ?: synchronized(this) {
@@ -32,14 +42,31 @@ object ServiceLocator {
         return BleRepositoryImpl(provideBleManager(context))
     }
 
-    fun provideNotificationRepository(): NotificationRepository {
-        return NotificationRepositoryImpl()
+    fun provideRuleRepository(context: Context): RuleRepository {
+        return RuleRepositoryImpl(provideDatabase(context).ruleDao())
+    }
+
+    fun provideNotificationRepository(context: Context): NotificationRepository {
+        return NotificationRepositoryImpl(provideDatabase(context).notificationLogDao())
     }
 
     fun provideProcessNotificationUseCase(context: Context): ProcessNotificationUseCase {
         return ProcessNotificationUseCase(
             provideBleRepository(context),
-            provideNotificationRepository()
+            provideNotificationRepository(context),
+            provideFilterAppRuleUseCase(context)
         )
+    }
+
+    fun provideFilterAppRuleUseCase(context: Context): FilterAppRuleUseCase {
+        return FilterAppRuleUseCase(provideRuleRepository(context))
+    }
+
+    fun provideGetInstalledAppsUseCase(context: Context): GetInstalledAppsUseCase {
+        return GetInstalledAppsUseCase(context.applicationContext, provideRuleRepository(context))
+    }
+
+    fun provideSaveAppRuleUseCase(context: Context): SaveAppRuleUseCase {
+        return SaveAppRuleUseCase(provideRuleRepository(context))
     }
 }

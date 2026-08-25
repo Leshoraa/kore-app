@@ -23,9 +23,10 @@ class BleManager(
     companion object {
         private const val TAG = "BleManager"
         
-        // ESP32-S3 Target UUIDs (Change as needed to match firmware)
+        // ESP32-S3 Target UUIDs (NORDIC UART SERVICE)
         val SERVICE_UUID: UUID = UUID.fromString("6E400001-B5A3-F393-E0A9-E50E24DCCA9E")
-        val CHARACTERISTIC_UUID_TX: UUID = UUID.fromString("6E400003-B5A3-F393-E0A9-E50E24DCCA9E") // RX from ESP side
+        val CHARACTERISTIC_UUID_RX: UUID = UUID.fromString("6E400002-B5A3-F393-E0A9-E50E24DCCA9E")
+        val CHARACTERISTIC_UUID_TX: UUID = UUID.fromString("6E400003-B5A3-F393-E0A9-E50E24DCCA9E")
         
         const val DEFAULT_MTU = 517
     }
@@ -35,6 +36,9 @@ class BleManager(
     
     private val _connectionState = MutableStateFlow(BluetoothProfile.STATE_DISCONNECTED)
     val connectionState = _connectionState.asStateFlow()
+
+    private val _connectedDeviceName = MutableStateFlow<String?>(null)
+    val connectedDeviceName = _connectedDeviceName.asStateFlow()
 
     private val _negotiatedMtu = MutableStateFlow(23)
     val negotiatedMtu = _negotiatedMtu.asStateFlow()
@@ -56,6 +60,7 @@ class BleManager(
                     operationQueue.enqueue { gatt.requestMtu(DEFAULT_MTU) }
                 }
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                _connectedDeviceName.value = null
                 gatt.close()
                 bluetoothGatt = null
             }
@@ -77,8 +82,9 @@ class BleManager(
         }
     }
 
-    fun connect(address: String) {
+    fun connect(address: String, deviceName: String? = null) {
         val device = BluetoothAdapter.getDefaultAdapter().getRemoteDevice(address)
+        _connectedDeviceName.value = deviceName ?: device.name
         bluetoothGatt = device.connectGatt(context, false, gattCallback, BluetoothDevice.TRANSPORT_LE)
     }
 
@@ -92,12 +98,13 @@ class BleManager(
         gatt.close()
         bluetoothGatt = null
         _connectionState.value = BluetoothProfile.STATE_DISCONNECTED
+        _connectedDeviceName.value = null
     }
 
     suspend fun writeData(data: ByteArray): Result<Unit> {
         val gatt = bluetoothGatt ?: return Result.failure(Exception("Not connected"))
         val service = gatt.getService(SERVICE_UUID) ?: return Result.failure(Exception("Service not found"))
-        val characteristic = service.getCharacteristic(CHARACTERISTIC_UUID_TX) ?: return Result.failure(Exception("Char not found"))
+        val characteristic = service.getCharacteristic(CHARACTERISTIC_UUID_RX) ?: return Result.failure(Exception("Char not found"))
 
         return operationQueue.enqueue {
             characteristic.value = data

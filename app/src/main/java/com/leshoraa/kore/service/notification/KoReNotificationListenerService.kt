@@ -1,14 +1,11 @@
 package com.leshoraa.kore.service.notification
 
-import android.app.Notification
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
 import com.leshoraa.kore.core.ble.BleManager
-import com.leshoraa.kore.core.ble.BleOperationQueue
-import com.leshoraa.kore.data.repository.BleRepositoryImpl
-import com.leshoraa.kore.data.repository.NotificationRepositoryImpl
 import com.leshoraa.kore.core.common.ServiceLocator
+import com.leshoraa.kore.data.parser.NotificationParser
 import com.leshoraa.kore.domain.model.NotificationEvent
 import com.leshoraa.kore.domain.usecase.ProcessNotificationUseCase
 import kotlinx.coroutines.*
@@ -27,65 +24,47 @@ class KoReNotificationListenerService : NotificationListenerService() {
     private val serviceJob = SupervisorJob()
     private val serviceScope = CoroutineScope(Dispatchers.Default + serviceJob)
     
-    // Hash-ring ring for deduplication: [Key -> LastProcessedTimestamp]
+    // In-memory cache for deduplication: [Key -> LastProcessedTimestamp]
     private val seenEvents = ConcurrentHashMap<Int, Long>()
 
-    // Simple manual DI for Stage 3
     private lateinit var processNotificationUseCase: ProcessNotificationUseCase
     private lateinit var bleManager: BleManager
+    private lateinit var notificationParser: NotificationParser
 
     override fun onCreate() {
         super.onCreate()
         
-        // Dependency Graph setup via ServiceLocator
+        // Setup via ServiceLocator
         bleManager = ServiceLocator.provideBleManager(applicationContext)
         processNotificationUseCase = ServiceLocator.provideProcessNotificationUseCase(applicationContext)
+        notificationParser = NotificationParser(applicationContext)
         
         startCleanupWatchdog()
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
-        val packageName = sbn.packageName
-        val notification = sbn.notification
-        val extras = notification.extras
+        // Delegate parsing to dedicated NotificationParser
+        val event = notificationParser.parse(sbn)
 
-        // Defensive extraction
-        val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: ""
-        val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: ""
-        val subText = extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString()
-        val isGroupSummary = (notification.flags and Notification.FLAG_GROUP_SUMMARY) != 0
-
-        // Create deduplication key
-        val eventKey = (packageName + sbn.id + sbn.tag + title + text).hashCode()
+        // Create deduplication key to avoid progress bar spam
+        val eventKey = (event.packageName + event.id + event.title + event.text).hashCode()
         val currentTime = System.currentTimeMillis()
         
         val lastTime = seenEvents[eventKey] ?: 0L
         if (currentTime - lastTime < DEBOUNCE_MS) {
-            // Discard spam/duplicate (common with progress updates)
             return
         }
         seenEvents[eventKey] = currentTime
 
         serviceScope.launch {
-            val event = NotificationEvent(
-                id = sbn.id.toString(),
-                packageName = packageName,
-                postTimeMillis = sbn.postTime,
-                title = title,
-                text = text,
-                subText = subText,
-                isClearable = sbn.isClearable,
-                isGroupSummary = isGroupSummary
-            )
-            
             processEvent(event)
         }
     }
 
     private suspend fun processEvent(event: NotificationEvent) {
-        Log.d(TAG, "Invoking ProcessNotificationUseCase for ${event.packageName}")
+        Log.d(TAG, "Processing notification from ${event.packageName}")
         processNotificationUseCase(event).onFailure { error ->
-            Log.e(TAG, "Processing failed for ${event.packageName}", error)
+            Log.e(TAG, "Dispatch failed for ${event.packageName}", error)
         }
     }
 

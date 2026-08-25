@@ -1,25 +1,42 @@
 package com.leshoraa.kore.data.repository
 
-import android.util.Log
+import com.leshoraa.kore.core.database.NotificationLogDao
+import com.leshoraa.kore.core.database.NotificationLogEntity
 import com.leshoraa.kore.domain.model.NotificationEvent
 import com.leshoraa.kore.domain.repository.NotificationRepository
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 /**
- * Repository implementation for managing notification logs (placeholder for Room DB).
+ * Room-backed implementation of NotificationRepository for auditing logs.
  */
-class NotificationRepositoryImpl : NotificationRepository {
+class NotificationRepositoryImpl(private val logDao: NotificationLogDao) : NotificationRepository {
     
-    private val _recentEvents = MutableStateFlow<List<NotificationEvent>>(emptyList())
-    override val recentEvents = _recentEvents.asStateFlow()
+    override val recentEvents: Flow<List<NotificationEvent>> = logDao.getRecentLogs().map { entities ->
+        entities.map { it.toDomain() }
+    }
 
     override suspend fun logEvent(event: NotificationEvent) {
-        Log.i("NotificationRepo", "Logged to audit: ${event.packageName} | ${event.title}")
-        
-        val current = _recentEvents.value.toMutableList()
-        current.add(0, event)
-        if (current.size > 50) current.removeAt(current.size - 1)
-        _recentEvents.value = current
+        logDao.insertLog(event.toEntity())
     }
+
+    private fun NotificationLogEntity.toDomain() = NotificationEvent(
+        id = id.toString(),
+        packageName = packageName,
+        appName = appName,
+        postTimeMillis = timestamp,
+        title = title,
+        text = text,
+        subText = null,
+        isClearable = true,
+        isGroupSummary = false
+    )
+
+    private fun NotificationEvent.toEntity() = NotificationLogEntity(
+        packageName = packageName,
+        appName = appName,
+        title = title,
+        text = text,
+        timestamp = postTimeMillis
+    )
 }

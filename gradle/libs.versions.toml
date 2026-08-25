@@ -11,6 +11,7 @@ activityKtx = "1.8.0"
 constraintlayout = "2.1.4"
 kotlinxCoroutines = "1.11.0"
 room = "2.8.4"
+ksp = "2.0.21-1.0.27"
 composeBom = "2026.08.00"
 lifecycle = "2.11.0"
 activityCompose = "1.13.0"
@@ -44,5 +45,6 @@ androidx-compose-material-icons-extended = { group = "androidx.compose.material"
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-symbol-processing = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 

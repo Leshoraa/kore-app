@@ -16,8 +16,13 @@ import com.leshoraa.kore.core.common.PermissionManager
 import com.leshoraa.kore.core.common.ServiceLocator
 import com.leshoraa.kore.presentation.dashboard.DashboardScreen
 import com.leshoraa.kore.presentation.dashboard.DashboardViewModel
+import com.leshoraa.kore.presentation.logs.LogsScreen
+import com.leshoraa.kore.presentation.logs.LogsViewModel
+import com.leshoraa.kore.presentation.rules.RulesScreen
+import com.leshoraa.kore.presentation.rules.RulesViewModel
 import com.leshoraa.kore.presentation.scanner.BleScannerViewModel
 import com.leshoraa.kore.presentation.scanner.ScannerScreen
+import com.leshoraa.kore.presentation.settings.SettingsScreen
 import com.leshoraa.kore.presentation.theme.KoReTheme
 
 class MainActivity : ComponentActivity() {
@@ -25,7 +30,7 @@ class MainActivity : ComponentActivity() {
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { _ ->
-        // State update handled by checking hasPermissions
+        // Permission states handled by UI checks
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -41,34 +46,60 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                Surface(
-                    modifier = Modifier.fillMaxSize()
-                ) {
+                Surface(modifier = Modifier.fillMaxSize()) {
                     NavHost(navController = navController, startDestination = "dashboard") {
                         composable("dashboard") {
                             val viewModel: DashboardViewModel = viewModel {
                                 DashboardViewModel(
                                     ServiceLocator.provideBleManager(applicationContext),
-                                    ServiceLocator.provideNotificationRepository()
+                                    ServiceLocator.provideBleRepository(applicationContext),
+                                    ServiceLocator.provideNotificationRepository(applicationContext)
                                 )
                             }
                             DashboardScreen(
                                 viewModel = viewModel,
                                 onNavigateToScanner = { navController.navigate("scanner") },
-                                onNavigateToSettings = { PermissionManager.openNotificationAccessSettings(this@MainActivity) }
+                                onNavigateToSettings = { navController.navigate("settings") },
+                                onNavigateToRules = { navController.navigate("rules") },
+                                onNavigateToLogs = { navController.navigate("logs") }
                             )
                         }
                         composable("scanner") {
                             val viewModel: BleScannerViewModel = viewModel {
                                 BleScannerViewModel(
                                     ServiceLocator.provideBleScanner(),
-                                    ServiceLocator.provideBleManager(applicationContext)
+                                    ServiceLocator.provideBleRepository(applicationContext)
                                 )
                             }
                             ScannerScreen(
                                 viewModel = viewModel,
-                                onBack = { navController.popBackStack() }
+                                onDeviceSelected = { navController.popBackStack() },
+                                onNavigateBack = { navController.popBackStack() }
                             )
+                        }
+                        composable("rules") {
+                            val viewModel: RulesViewModel = viewModel {
+                                RulesViewModel(
+                                    ServiceLocator.provideGetInstalledAppsUseCase(applicationContext),
+                                    ServiceLocator.provideSaveAppRuleUseCase(applicationContext)
+                                )
+                            }
+                            RulesScreen(
+                                viewModel = viewModel,
+                                onNavigateBack = { navController.popBackStack() }
+                            )
+                        }
+                        composable("logs") {
+                            val viewModel: LogsViewModel = viewModel {
+                                LogsViewModel(ServiceLocator.provideNotificationRepository(applicationContext))
+                            }
+                            LogsScreen(
+                                viewModel = viewModel,
+                                onNavigateBack = { navController.popBackStack() }
+                            )
+                        }
+                        composable("settings") {
+                            SettingsScreen(onNavigateBack = { navController.popBackStack() })
                         }
                     }
                 }

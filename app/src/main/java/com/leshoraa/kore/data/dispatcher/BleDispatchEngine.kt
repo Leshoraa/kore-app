@@ -17,12 +17,17 @@ class BleDispatchEngine(private val bleManager: BleManager) {
     suspend fun dispatch(event: NotificationEvent): Result<Unit> {
         return runCatching {
             Log.d(TAG, "Packing event for ${event.packageName}")
-            val fullFrame = BlePacketFraming.pack(event)
+            
+            // Format as pure UTF-8 JSON as per requirements
+            // {"app":"<AppName>","title":"<Title>","message":"<Content>"}
+            val payload = """{"app":"${event.appName}","title":"${event.title}","message":"${event.text}"}"""
+            val data = payload.toByteArray(Charsets.UTF_8)
             
             val mtu = bleManager.negotiatedMtu.value
-            val chunks = BlePacketFraming.fragment(fullFrame, mtu)
             
-            Log.d(TAG, "Sending ${chunks.size} chunks with MTU $mtu")
+            val chunks = fragment(data, mtu)
+            
+            Log.d(TAG, "Sending ${chunks.size} chunks with MTU $mtu: $payload")
             
             chunks.forEachIndexed { index, chunk ->
                 bleManager.writeData(chunk).onFailure { error ->
@@ -31,5 +36,22 @@ class BleDispatchEngine(private val bleManager: BleManager) {
                 }
             }
         }
+    }
+
+    /**
+     * Splits data into fragments that fit within the MTU.
+     */
+    private fun fragment(data: ByteArray, mtu: Int): List<ByteArray> {
+        val payloadPerChunk = mtu - 3 // 3 bytes for opcode + attribute handle
+        if (data.size <= payloadPerChunk) return listOf(data)
+        
+        val chunks = mutableListOf<ByteArray>()
+        var start = 0
+        while (start < data.size) {
+            val end = (start + payloadPerChunk).coerceAtMost(data.size)
+            chunks.add(data.copyOfRange(start, end))
+            start = end
+        }
+        return chunks
     }
 }

@@ -2,14 +2,14 @@ package com.leshoraa.kore.presentation.scanner
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.leshoraa.kore.core.ble.BleManager
 import com.leshoraa.kore.core.ble.BleScanner
+import com.leshoraa.kore.domain.repository.BleRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 
 class BleScannerViewModel(
     private val bleScanner: BleScanner,
-    private val bleManager: BleManager
+    private val bleRepository: BleRepository
 ) : ViewModel() {
 
     val foundDevices = bleScanner.foundDevices
@@ -18,16 +18,16 @@ class BleScannerViewModel(
     val isScanning = bleScanner.isScanning
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
-    val connectionState = bleManager.connectionState
+    val connectionState = bleRepository.connectionState
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
     fun startScan() = bleScanner.startScan()
     fun stopScan() = bleScanner.stopScan()
 
-    fun connect(address: String) {
+    fun connect(address: String, deviceName: String?) {
         bleScanner.stopScan()
-        bleManager.connect(address)
+        bleRepository.connect(address, deviceName)
     }
 
-    fun disconnect() = bleManager.disconnect()
+    fun disconnect() = bleRepository.disconnect()
 }

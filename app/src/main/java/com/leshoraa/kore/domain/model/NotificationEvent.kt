@@ -6,6 +6,7 @@ package com.leshoraa.kore.domain.model
 data class NotificationEvent(
     val id: String,
     val packageName: String,
+    val appName: String,
     val postTimeMillis: Long,
     val title: String,
     val text: String,

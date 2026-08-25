@@ -7,6 +7,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BluetoothConnected
 import androidx.compose.material.icons.filled.BluetoothDisabled
+import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -27,16 +29,28 @@ import java.util.Locale
 fun DashboardScreen(
     viewModel: DashboardViewModel,
     onNavigateToScanner: () -> Unit,
-    onNavigateToSettings: () -> Unit
+    onNavigateToSettings: () -> Unit,
+    onNavigateToRules: () -> Unit,
+    onNavigateToLogs: () -> Unit
 ) {
     val connectionState by viewModel.connectionState.collectAsState()
+    val connectedDeviceName by viewModel.connectedDeviceName.collectAsState()
     val logs by viewModel.logs.collectAsState()
+    
+    val testTitle by viewModel.testTitle.collectAsState()
+    val testMessage by viewModel.testMessage.collectAsState()
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("KoRe Dashboard") },
                 actions = {
+                    IconButton(onClick = onNavigateToRules) {
+                        Icon(Icons.Default.FilterList, contentDescription = "Rules")
+                    }
+                    IconButton(onClick = onNavigateToLogs) {
+                        Icon(Icons.Default.History, contentDescription = "Logs")
+                    }
                     IconButton(onClick = onNavigateToSettings) {
                         Icon(Icons.Default.Settings, contentDescription = "Settings")
                     }
@@ -52,10 +66,21 @@ fun DashboardScreen(
         ) {
             ConnectionStatusCard(
                 state = connectionState,
+                deviceName = connectedDeviceName,
                 onConnectClick = onNavigateToScanner,
                 onDisconnectClick = { viewModel.disconnect() }
             )
             
+            Spacer(modifier = Modifier.height(24.dp))
+
+            TestMessageSection(
+                title = testTitle,
+                message = testMessage,
+                onTitleChange = { viewModel.onTestTitleChange(it) },
+                onMessageChange = { viewModel.onTestMessageChange(it) },
+                onSendClick = { viewModel.sendTestMessage() }
+            )
+
             Spacer(modifier = Modifier.height(24.dp))
             
             Text(
@@ -72,7 +97,12 @@ fun DashboardScreen(
 }
 
 @Composable
-fun ConnectionStatusCard(state: Int, onConnectClick: () -> Unit, onDisconnectClick: () -> Unit) {
+fun ConnectionStatusCard(
+    state: Int, 
+    deviceName: String?, 
+    onConnectClick: () -> Unit, 
+    onDisconnectClick: () -> Unit
+) {
     val isConnected = state == BluetoothProfile.STATE_CONNECTED
     
     Card(
@@ -94,7 +124,7 @@ fun ConnectionStatusCard(state: Int, onConnectClick: () -> Unit, onDisconnectCli
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = if (isConnected) "Engine Connected" else "Engine Disconnected",
+                    text = if (isConnected) "Connected: ${deviceName ?: "Unknown"}" else "Disconnected",
                     style = MaterialTheme.typography.titleMedium
                 )
                 Text(
@@ -104,6 +134,55 @@ fun ConnectionStatusCard(state: Int, onConnectClick: () -> Unit, onDisconnectCli
             }
             Button(onClick = if (isConnected) onDisconnectClick else onConnectClick) {
                 Text(if (isConnected) "Stop" else "Link")
+            }
+        }
+    }
+}
+
+@Composable
+fun TestMessageSection(
+    title: String,
+    message: String,
+    onTitleChange: (String) -> Unit,
+    onMessageChange: (String) -> Unit,
+    onSendClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        border = CardDefaults.outlinedCardBorder()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                text = "Send Test Message",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = title,
+                onValueChange = onTitleChange,
+                label = { Text("Title") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = message,
+                onValueChange = onMessageChange,
+                label = { Text("Message") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Button(
+                onClick = onSendClick,
+                modifier = Modifier.align(Alignment.End),
+                enabled = title.isNotBlank() && message.isNotBlank()
+            ) {
+                Text("Send to KoRe")
             }
         }
     }
@@ -138,7 +217,7 @@ fun LogItem(event: NotificationEvent) {
     Column(modifier = Modifier.padding(vertical = 8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = event.packageName.substringAfterLast("."),
+                text = event.appName,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.primary
             )

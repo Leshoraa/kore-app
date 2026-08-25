@@ -13,6 +13,7 @@ import kotlinx.coroutines.withContext
 class ProcessNotificationUseCase(
     private val bleRepository: BleRepository,
     private val notificationRepository: NotificationRepository,
+    private val filterAppRuleUseCase: FilterAppRuleUseCase,
     private val defaultDispatcher: CoroutineDispatcher = Dispatchers.Default
 ) {
     suspend operator fun invoke(event: NotificationEvent): Result<Unit> = withContext(defaultDispatcher) {
@@ -20,10 +21,14 @@ class ProcessNotificationUseCase(
             // 1. Mandatory Filters (Invariants)
             if (event.isGroupSummary) return@runCatching
 
-            // 2. Persist for Audit
+            // 2. User-defined App Filter
+            val isAllowed = filterAppRuleUseCase(event.packageName)
+            if (!isAllowed) return@runCatching
+
+            // 3. Persist for Audit
             notificationRepository.logEvent(event)
 
-            // 3. Dispatch to BLE
+            // 4. Dispatch to BLE
             bleRepository.sendNotification(event).getOrThrow()
         }
     }
