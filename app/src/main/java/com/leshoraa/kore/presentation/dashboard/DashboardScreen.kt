@@ -25,6 +25,7 @@ import com.leshoraa.kore.domain.model.NotificationEvent
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -239,8 +240,8 @@ fun BrightnessControlCard(
             Slider(
                 value = brightness.toFloat(),
                 onValueChange = { 
-                    val value = it.toInt()
-                    onBrightnessChange(if (value == 0) 1 else value)
+                    val rounded = it.roundToInt()
+                    onBrightnessChange(if (rounded == 0) 1 else rounded)
                 },
                 onValueChangeFinished = onBrightnessChangeFinished,
                 valueRange = 0f..100f,
