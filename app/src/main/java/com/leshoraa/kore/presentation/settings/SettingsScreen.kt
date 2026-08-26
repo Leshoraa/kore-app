@@ -8,13 +8,16 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.BatteryChargingFull
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -34,7 +37,8 @@ import kotlinx.coroutines.launch
 fun SettingsScreen(
     selectedPalette: AppPalette = AppPalette.FOREST,
     onPaletteChange: (AppPalette) -> Unit = {},
-    onNavigateBack: (() -> Unit)? = null
+    onNavigateBack: (() -> Unit)? = null,
+    onNavigateToFilters: () -> Unit = {}
 ) {
     val context = LocalContext.current
 
@@ -56,8 +60,10 @@ fun SettingsScreen(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
+                .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
+            // Section: Appearance
             Text(
                 text = stringResource(R.string.settings_theme_palette),
                 style = MaterialTheme.typography.titleMedium,
@@ -80,13 +86,30 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            // Section: Notification Rules
+            Text(
+                text = stringResource(R.string.settings_section_notifications),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(12.dp))
 
+            SettingItem(
+                title = stringResource(R.string.rules_title),
+                description = "Manage which apps can send notifications to KoRe.",
+                icon = Icons.Default.FilterList,
+                onClick = onNavigateToFilters
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Section: System Stability
             Text(
                 text = stringResource(R.string.settings_stability_guards),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.primary
             )
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             SettingItem(
                 title = stringResource(R.string.settings_battery_optimization),
@@ -104,7 +127,15 @@ fun SettingsScreen(
                 onClick = { openNotificationListenerSettings(context) }
             )
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Section: Hardware Configuration
+            Text(
+                text = stringResource(R.string.settings_section_connectivity),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(12.dp))
 
             SettingItem(
                 title = stringResource(R.string.settings_ble_config),

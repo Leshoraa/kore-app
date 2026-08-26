@@ -5,9 +5,11 @@ import com.leshoraa.kore.core.ble.BleManager
 import com.leshoraa.kore.core.ble.BleScanner
 import com.leshoraa.kore.core.database.AppDatabase
 import com.leshoraa.kore.data.repository.BleRepositoryImpl
+import com.leshoraa.kore.data.repository.CameraVisionRepositoryImpl
 import com.leshoraa.kore.data.repository.NotificationRepositoryImpl
 import com.leshoraa.kore.data.repository.RuleRepositoryImpl
 import com.leshoraa.kore.domain.repository.BleRepository
+import com.leshoraa.kore.domain.repository.CameraVisionRepository
 import com.leshoraa.kore.domain.repository.NotificationRepository
 import com.leshoraa.kore.domain.repository.RuleRepository
 import com.leshoraa.kore.domain.usecase.*
@@ -20,6 +22,7 @@ object ServiceLocator {
     private var bleScanner: BleScanner? = null
     private var database: AppDatabase? = null
     private var preferencesManager: PreferencesManager? = null
+    private var cameraVisionRepository: CameraVisionRepository? = null
 
     private fun provideDatabase(context: Context): AppDatabase {
         return database ?: synchronized(this) {
@@ -41,6 +44,24 @@ object ServiceLocator {
 
     fun provideBleRepository(context: Context): BleRepository {
         return BleRepositoryImpl(provideBleManager(context))
+    }
+
+    fun provideCameraVisionRepository(context: Context): CameraVisionRepository {
+        return cameraVisionRepository ?: synchronized(this) {
+            cameraVisionRepository ?: CameraVisionRepositoryImpl(context.applicationContext).also { cameraVisionRepository = it }
+        }
+    }
+
+    fun provideGetCameraStreamUseCase(context: Context): GetCameraStreamUseCase {
+        return GetCameraStreamUseCase(provideCameraVisionRepository(context))
+    }
+
+    fun provideGetTelemetryStreamUseCase(context: Context): GetTelemetryStreamUseCase {
+        return GetTelemetryStreamUseCase(provideCameraVisionRepository(context))
+    }
+
+    fun provideUpdateCameraSensorUseCase(context: Context): UpdateCameraSensorUseCase {
+        return UpdateCameraSensorUseCase(provideCameraVisionRepository(context))
     }
 
     fun provideRuleRepository(context: Context): RuleRepository {

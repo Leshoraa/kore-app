@@ -8,13 +8,12 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoGraph
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -31,7 +30,6 @@ import com.leshoraa.kore.presentation.theme.KoReTheme
 
 /**
  * Main activity of the KoRe application.
- * Follows industry standards for clean architecture and UI separation.
  */
 class MainActivity : ComponentActivity() {
 
@@ -58,7 +56,7 @@ class MainActivity : ComponentActivity() {
 
                 val items = listOf(
                     NavigationItem(stringResource(R.string.nav_dashboard), "dashboard", Icons.Default.AutoGraph),
-                    NavigationItem(stringResource(R.string.nav_filters), "rules", Icons.Default.FilterList),
+                    NavigationItem(stringResource(R.string.nav_vision), "vision", Icons.Default.Videocam),
                     NavigationItem(stringResource(R.string.nav_logs), "logs", Icons.Default.History),
                     NavigationItem(stringResource(R.string.nav_settings), "settings", Icons.Default.Settings)
                 )

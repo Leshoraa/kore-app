@@ -3,9 +3,47 @@
 
     <!-- Navigation -->
     <string name="nav_dashboard">Dashboard</string>
+    <string name="nav_vision">Vision</string>
     <string name="nav_filters">Filters</string>
     <string name="nav_logs">Logs</string>
     <string name="nav_settings">Settings</string>
+
+    <!-- Vision & Camera HUD -->
+    <string name="vision_title">Vision &amp; Telemetry</string>
+    <string name="vision_host_config">Camera Host IP</string>
+    <string name="vision_host_placeholder">e.g. 192.168.4.1</string>
+    <string name="vision_status_idle">Standby</string>
+    <string name="vision_status_connecting">Connecting Stream...</string>
+    <string name="vision_status_streaming">Streaming</string>
+    <string name="vision_status_error">Connection Failed</string>
+    <string name="vision_btn_start">Start Stream</string>
+    <string name="vision_btn_stop">Stop Stream</string>
+    <string name="vision_btn_settings">Camera Controls</string>
+    <string name="vision_btn_ip">Configure IP</string>
+    <string name="vision_hud_fps">FPS</string>
+    <string name="vision_hud_conf">CONF</string>
+    <string name="vision_hud_human">HUMAN</string>
+    <string name="vision_hud_prox">PROX</string>
+    <string name="vision_hud_target">TARGET</string>
+    <string name="vision_hud_lock">LOCKED</string>
+    <string name="vision_hud_scanning">SCANNING</string>
+    <string name="vision_hud_candidates">%1$d Candidates</string>
+    <string name="vision_param_brightness">Brightness</string>
+    <string name="vision_param_contrast">Contrast</string>
+    <string name="vision_param_saturation">Saturation</string>
+    <string name="vision_param_vflip">Vertical Flip</string>
+    <string name="vision_param_hmirror">Horizontal Mirror</string>
+    <string name="vision_param_aec">Auto Exposure (AEC)</string>
+    <string name="vision_param_agc">Auto Gain (AGC)</string>
+    <string name="vision_sys_heap">Heap</string>
+    <string name="vision_sys_psram">PSRAM</string>
+    <string name="vision_sys_cpu">CPU</string>
+    <string name="vision_sys_uptime">Uptime</string>
+    <string name="vision_affective_valence">Valence</string>
+    <string name="vision_affective_arousal">Arousal</string>
+    <string name="dialog_ip_title">Set Device IP Address</string>
+    <string name="dialog_ip_message">Enter the IP address of your ESP32-S3 (Access Point default is 192.168.4.1):</string>
+    <string name="dialog_btn_save">Save</string>
 
     <!-- Dashboard -->
     <string name="dashboard_title">KoRe Dashboard</string>
@@ -22,7 +60,7 @@
     <string name="label_brightness">Brightness</string>
     <string name="title_kore_brightness">KoRe Brightness</string>
     <string name="msg_hardware_offline">Hardware offline (saved preference will sync upon connection)</string>
-    <string name="label_expression">Expression</string>
+    <string name="label_expression">Mood</string>
     <string name="label_auto_mood">Auto Mood</string>
     <string name="btn_default_auto_mood">Default (Auto Mood)</string>
     <string name="btn_default_auto_mood_selected">✓ Default (Auto Mood)</string>
@@ -70,8 +108,10 @@
 
     <!-- Settings -->
     <string name="settings_title">Settings &amp; Optimization</string>
-    <string name="settings_theme_palette">Theme Palette</string>
-    <string name="settings_stability_guards">Stability Guards</string>
+    <string name="settings_theme_palette">Appearance</string>
+    <string name="settings_section_notifications">Notification Rules</string>
+    <string name="settings_stability_guards">System Access</string>
+    <string name="settings_section_connectivity">Connectivity</string>
     <string name="settings_battery_optimization">Battery Optimization</string>
     <string name="settings_battery_optimization_desc">Ensure the app is not killed in the background.</string>
     <string name="settings_notification_access">Notification Access</string>

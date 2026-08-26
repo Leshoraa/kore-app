@@ -108,10 +108,51 @@ class BleManager(
 
         override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
             Log.i(TAG, "Services discovered with status $status")
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                val service = gatt.getService(SERVICE_UUID)
+                val txChar = service?.getCharacteristic(CHARACTERISTIC_UUID_TX)
+                if (txChar != null) {
+                    gatt.setCharacteristicNotification(txChar, true)
+                    val cccd = txChar.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"))
+                    if (cccd != null) {
+                        cccd.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                        gatt.writeDescriptor(cccd)
+                    }
+                }
+            }
+        }
+
+        override fun onCharacteristicChanged(
+            gatt: BluetoothGatt,
+            characteristic: BluetoothGattCharacteristic,
+            value: ByteArray
+        ) {
+            handleIncomingBlePacket(value)
+        }
+
+        @Suppress("DEPRECATION")
+        override fun onCharacteristicChanged(
+            gatt: BluetoothGatt,
+            characteristic: BluetoothGattCharacteristic
+        ) {
+            val v = characteristic.value ?: return
+            handleIncomingBlePacket(v)
         }
 
         override fun onCharacteristicWrite(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, status: Int) {
             Log.d(TAG, "onCharacteristicWrite: UUID=${characteristic.uuid}, status=$status")
+        }
+    }
+
+    private fun handleIncomingBlePacket(bytes: ByteArray) {
+        val text = String(bytes)
+        Log.d(TAG, "BLE Notification received: $text")
+        if (text.contains("\"ip\":")) {
+            val ip = text.substringAfter("\"ip\":\"").substringBefore("\"")
+            if (ip.isNotBlank() && ip.contains(".")) {
+                Log.i(TAG, "Auto-configured Camera Host from BLE: $ip")
+                com.leshoraa.kore.core.common.ServiceLocator.providePreferencesManager(context).setCameraHost(ip)
+            }
         }
     }
 

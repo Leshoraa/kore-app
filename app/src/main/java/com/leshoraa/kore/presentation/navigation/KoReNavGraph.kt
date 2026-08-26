@@ -11,6 +11,8 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.leshoraa.kore.core.common.ServiceLocator
+import com.leshoraa.kore.presentation.camera.CameraVisionScreen
+import com.leshoraa.kore.presentation.camera.CameraVisionViewModel
 import com.leshoraa.kore.presentation.dashboard.DashboardScreen
 import com.leshoraa.kore.presentation.dashboard.DashboardViewModel
 import com.leshoraa.kore.presentation.logs.LogsScreen
@@ -65,6 +67,22 @@ fun KoReNavGraph(
                 onNavigateToScanner = { navController.navigate("scanner") }
             )
         }
+        composable("vision") {
+            val viewModel: CameraVisionViewModel = viewModel {
+                CameraVisionViewModel(
+                    ServiceLocator.provideGetCameraStreamUseCase(context),
+                    ServiceLocator.provideGetTelemetryStreamUseCase(context),
+                    ServiceLocator.provideUpdateCameraSensorUseCase(context),
+                    ServiceLocator.providePreferencesManager(context),
+                    ServiceLocator.provideCameraVisionRepository(context)
+                )
+            }
+            CameraVisionScreen(
+                viewModel = viewModel,
+                isDarkTheme = darkTheme,
+                onToggleTheme = onToggleTheme
+            )
+        }
         composable("scanner") {
             val viewModel: BleScannerViewModel = viewModel {
                 BleScannerViewModel(
@@ -92,7 +110,8 @@ fun KoReNavGraph(
             }
             RulesScreen(
                 viewModel = viewModel,
-                onToggleTheme = onToggleTheme
+                onToggleTheme = onToggleTheme,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
         composable("logs") {
@@ -108,7 +127,8 @@ fun KoReNavGraph(
         composable("settings") {
             SettingsScreen(
                 selectedPalette = selectedPalette,
-                onPaletteChange = onPaletteChange
+                onPaletteChange = onPaletteChange,
+                onNavigateToFilters = { navController.navigate("rules") }
             )
         }
     }
