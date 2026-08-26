@@ -18,9 +18,12 @@ class BleDispatchEngine(private val bleManager: BleManager) {
         return runCatching {
             Log.d(TAG, "Packing event for ${event.packageName}")
             
-            // Format as pure UTF-8 JSON as per requirements
-            // {"app":"<AppName>","title":"<Title>","message":"<Content>"}
-            val payload = """{"app":"${event.appName}","title":"${event.title}","message":"${event.text}"}"""
+            // Format as pure UTF-8 JSON with escaping to prevent invalid JSON
+            val escapedApp = escapeJson(event.appName)
+            val escapedTitle = escapeJson(event.title)
+            val escapedMsg = escapeJson(event.text)
+            
+            val payload = """{"app":"$escapedApp","title":"$escapedTitle","message":"$escapedMsg"}"""
             val data = payload.toByteArray(Charsets.UTF_8)
             
             val mtu = bleManager.negotiatedMtu.value
@@ -53,5 +56,14 @@ class BleDispatchEngine(private val bleManager: BleManager) {
             start = end
         }
         return chunks
+    }
+
+    private fun escapeJson(input: String): String {
+        return input.replace("\\", "\\\\")
+            .replace("\"", "\\\"")
+            .replace("\b", "\\b")
+            .replace("\n", "\\n")
+            .replace("\r", "\\r")
+            .replace("\t", "\\t")
     }
 }

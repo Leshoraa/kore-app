@@ -22,7 +22,11 @@ class GetInstalledAppsUseCase(
         val existingRules = ruleRepository.getAllRules().first().associateBy { it.packageName }
 
         installedApps
-            .filter { (it.flags and ApplicationInfo.FLAG_SYSTEM) == 0 || (it.flags and ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0 }
+            .filter { appInfo ->
+                // Only show apps that can be launched (user-facing apps)
+                // This will include WhatsApp and exclude background system services.
+                pm.getLaunchIntentForPackage(appInfo.packageName) != null
+            }
             .map { appInfo ->
                 val packageName = appInfo.packageName
                 val appName = pm.getApplicationLabel(appInfo).toString()

@@ -3,9 +3,12 @@ package com.leshoraa.kore.presentation.settings
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.PowerManager
 import android.provider.Settings
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
@@ -13,13 +16,19 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.leshoraa.kore.presentation.theme.AppPalette
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(onNavigateBack: () -> Unit) {
+fun SettingsScreen(
+    selectedPalette: AppPalette = AppPalette.FOREST,
+    onPaletteChange: (AppPalette) -> Unit = {},
+    onNavigateBack: (() -> Unit)? = null
+) {
     val context = LocalContext.current
 
     Scaffold(
@@ -27,8 +36,10 @@ fun SettingsScreen(onNavigateBack: () -> Unit) {
             TopAppBar(
                 title = { Text("Settings & Optimization") },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    if (onNavigateBack != null) {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        }
                     }
                 }
             )
@@ -40,6 +51,28 @@ fun SettingsScreen(onNavigateBack: () -> Unit) {
                 .fillMaxSize()
                 .padding(16.dp)
         ) {
+            Text(
+                text = "Theme Palette",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                AppPalette.values().forEach { palette ->
+                    ColorCircle(
+                        color = palette.primaryColor,
+                        isSelected = selectedPalette == palette,
+                        onClick = { onPaletteChange(palette) }
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
             Text(
                 text = "Stability Guards",
                 style = MaterialTheme.typography.titleMedium,
@@ -70,6 +103,35 @@ fun SettingsScreen(onNavigateBack: () -> Unit) {
                 description = "Current: 6E400001 (Nordic UART Service)",
                 icon = Icons.Default.Bluetooth,
                 onClick = { /* TODO: Implement custom UUID editor if needed */ }
+            )
+        }
+    }
+}
+
+@Composable
+fun ColorCircle(
+    color: Color,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .size(48.dp)
+            .clip(CircleShape)
+            .background(color)
+            .border(
+                width = if (isSelected) 3.dp else 0.dp,
+                color = if (isSelected) MaterialTheme.colorScheme.onSurface else Color.Transparent,
+                shape = CircleShape
+            )
+            .clickable(onClick = onClick)
+    ) {
+        if (isSelected) {
+            Icon(
+                imageVector = Icons.Default.Check,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.align(Alignment.Center).size(24.dp)
             )
         }
     }

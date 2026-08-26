@@ -20,6 +20,7 @@ class ProcessNotificationUseCase(
         runCatching {
             // 1. Mandatory Filters (Invariants)
             if (event.isGroupSummary) return@runCatching
+            if (event.title.isBlank() && event.text.isBlank()) return@runCatching
 
             // 2. User-defined App Filter
             val isAllowed = filterAppRuleUseCase(event.packageName)

@@ -5,6 +5,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -22,17 +24,29 @@ import java.util.*
 @Composable
 fun LogsScreen(
     viewModel: LogsViewModel,
-    onNavigateBack: () -> Unit
+    isDarkTheme: Boolean = false,
+    onToggleTheme: () -> Unit = {},
+    onNavigateBack: (() -> Unit)? = null
 ) {
     val logs by viewModel.logs.collectAsState()
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Audit Logs") },
+            CenterAlignedTopAppBar(
+                title = { Text("Audit Logs", style = MaterialTheme.typography.titleMedium) },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    if (onNavigateBack != null) {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        }
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onToggleTheme) {
+                        Icon(
+                            if (isDarkTheme) Icons.Default.LightMode else Icons.Default.DarkMode,
+                            contentDescription = "Toggle Theme"
+                        )
                     }
                 }
             )
@@ -45,18 +59,20 @@ fun LogsScreen(
                     .padding(padding),
                 contentAlignment = Alignment.Center
             ) {
-                Text("No logs found.", color = Color.Gray)
+                Text(
+                    "No logs found.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         } else {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding),
-                contentPadding = PaddingValues(16.dp)
+                    .padding(padding)
             ) {
                 items(logs) { event ->
                     LogEntryItem(event)
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), thickness = 0.5.dp)
                 }
             }
         }
@@ -67,30 +83,19 @@ fun LogsScreen(
 fun LogEntryItem(event: NotificationEvent) {
     val dateFormat = remember { SimpleDateFormat("MMM dd, HH:mm:ss", Locale.getDefault()) }
     
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = event.appName,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Text(
-                text = dateFormat.format(Date(event.postTimeMillis)),
-                style = MaterialTheme.typography.labelSmall,
-                color = Color.Gray
-            )
-        }
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(text = event.title, style = MaterialTheme.typography.bodyLarge)
-        if (event.text.isNotEmpty()) {
-            Text(
-                text = event.text,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
+    ListItem(
+        headlineContent = { Text(event.title) },
+        supportingContent = { 
+            if (event.text.isNotEmpty()) {
+                Text(event.text)
+            }
+        },
+        overlineContent = {
+            Text("${event.appName} • ${dateFormat.format(Date(event.postTimeMillis))}")
+        },
+        colors = ListItemDefaults.colors(
+            containerColor = Color.Transparent
+        )
+    )
+    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
 }

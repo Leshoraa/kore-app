@@ -20,6 +20,9 @@ interface RuleDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertRule(rule: AppRuleEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertRules(rules: List<AppRuleEntity>)
+
     @Query("DELETE FROM app_rules WHERE packageName = :packageName")
     suspend fun deleteRule(packageName: String)
 }

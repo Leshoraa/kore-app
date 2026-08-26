@@ -5,37 +5,61 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RulesScreen(
     viewModel: RulesViewModel,
-    onNavigateBack: () -> Unit
+    isDarkTheme: Boolean = false,
+    onToggleTheme: () -> Unit = {},
+    onNavigateBack: (() -> Unit)? = null
 ) {
     val apps by viewModel.apps.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
 
+    var selectedFilter by remember { mutableStateOf(FilterType.ALL) }
+    var showMenu by remember { mutableStateOf(false) }
+
     val filteredApps = apps.filter {
-        it.appName.contains(searchQuery, ignoreCase = true) || 
-        it.packageName.contains(searchQuery, ignoreCase = true)
+        val matchesSearch = it.appName.contains(searchQuery, ignoreCase = true) || 
+                           it.packageName.contains(searchQuery, ignoreCase = true)
+        val matchesFilter = when (selectedFilter) {
+            FilterType.ALL -> true
+            FilterType.ENABLED -> it.isEnabled
+            FilterType.DISABLED -> !it.isEnabled
+        }
+        matchesSearch && matchesFilter
     }
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("App Filters") },
+            CenterAlignedTopAppBar(
+                title = { Text("App Filters", style = MaterialTheme.typography.titleMedium) },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    if (onNavigateBack != null) {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        }
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onToggleTheme) {
+                        Icon(
+                            if (isDarkTheme) Icons.Default.LightMode else Icons.Default.DarkMode,
+                            contentDescription = "Toggle Theme"
+                        )
                     }
                 }
             )
@@ -47,24 +71,81 @@ fun RulesScreen(
                 onValueChange = { viewModel.onSearchQueryChanged(it) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp),
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
                 placeholder = { Text("Search apps...") },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                singleLine = true
+                singleLine = true,
+                shape = MaterialTheme.shapes.extraLarge,
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                    unfocusedBorderColor = Color.Transparent,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary
+                )
             )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    modifier = Modifier.weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterType.values().forEach { filter ->
+                        FilterChip(
+                            selected = selectedFilter == filter,
+                            onClick = { selectedFilter = filter },
+                            label = { Text(filter.label) },
+                            leadingIcon = if (selectedFilter == filter) {
+                                { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                            } else null
+                        )
+                    }
+                }
+
+                Box {
+                    TextButton(onClick = { showMenu = true }) {
+                        Text("Select")
+                    }
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Select All") },
+                            onClick = {
+                                viewModel.toggleAll(true)
+                                showMenu = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Deselect All") },
+                            onClick = {
+                                viewModel.toggleAll(false)
+                                showMenu = false
+                            }
+                        )
+                    }
+                }
+            }
 
             if (isLoading) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
             } else {
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 16.dp)
+                ) {
                     items(filteredApps, key = { it.packageName }) { app ->
                         AppRuleItem(
                             appRule = app,
                             onToggle = { viewModel.toggleAppRule(app) }
                         )
-                        HorizontalDivider(thickness = 0.5.dp)
                     }
                 }
             }
@@ -72,25 +153,26 @@ fun RulesScreen(
     }
 }
 
+enum class FilterType(val label: String) {
+    ALL("All"),
+    ENABLED("Active"),
+    DISABLED("Inactive")
+}
+
 @Composable
 fun AppRuleItem(appRule: com.leshoraa.kore.domain.model.AppRule, onToggle: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = appRule.appName, style = MaterialTheme.typography.bodyLarge)
-            Text(
-                text = appRule.packageName,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.secondary
+    ListItem(
+        headlineContent = { Text(appRule.appName) },
+        supportingContent = { Text(appRule.packageName) },
+        trailingContent = {
+            Switch(
+                checked = appRule.isEnabled,
+                onCheckedChange = { onToggle() }
             )
-        }
-        Switch(
-            checked = appRule.isEnabled,
-            onCheckedChange = { onToggle() }
+        },
+        colors = ListItemDefaults.colors(
+            containerColor = Color.Transparent
         )
-    }
+    )
+    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
 }

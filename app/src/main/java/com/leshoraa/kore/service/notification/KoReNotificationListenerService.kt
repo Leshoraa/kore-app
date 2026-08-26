@@ -43,10 +43,16 @@ class KoReNotificationListenerService : NotificationListenerService() {
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
-        // Delegate parsing to dedicated NotificationParser
+        // 1. Ignore own notifications to prevent infinite loops/self-triggering
+        if (sbn.packageName == packageName) return
+
+        // 2. Delegate parsing
         val event = notificationParser.parse(sbn)
 
-        // Create deduplication key to avoid progress bar spam
+        // 3. Ignore ongoing/system notifications that aren't clearable
+        if (!sbn.isClearable) return
+
+        // 4. Create deduplication key to avoid progress bar spam
         val eventKey = (event.packageName + event.id + event.title + event.text).hashCode()
         val currentTime = System.currentTimeMillis()
         

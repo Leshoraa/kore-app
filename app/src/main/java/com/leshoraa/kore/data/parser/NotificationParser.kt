@@ -29,8 +29,12 @@ class NotificationParser(private val context: Context) {
 
         // Extract text safely using common notification extras
         val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: ""
-        val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString() 
-            ?: extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString() 
+        
+        // Try multiple sources for text content
+        val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
+            ?: extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()
+            ?: extras.getCharSequence(Notification.EXTRA_SUMMARY_TEXT)?.toString()
+            ?: notification.tickerText?.toString()
             ?: ""
         val subText = extras.getCharSequence(Notification.EXTRA_SUB_TEXT)?.toString()
         

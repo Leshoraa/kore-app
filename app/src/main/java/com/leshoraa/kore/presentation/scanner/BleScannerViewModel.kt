@@ -30,4 +30,8 @@ class BleScannerViewModel(
     }
 
     fun disconnect() = bleRepository.disconnect()
+
+    override fun onCleared() {
+        stopScan()
+    }
 }

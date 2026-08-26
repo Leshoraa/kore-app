@@ -69,4 +69,8 @@ object ServiceLocator {
     fun provideSaveAppRuleUseCase(context: Context): SaveAppRuleUseCase {
         return SaveAppRuleUseCase(provideRuleRepository(context))
     }
+
+    fun provideSaveAppRulesUseCase(context: Context): SaveAppRulesUseCase {
+        return SaveAppRulesUseCase(provideRuleRepository(context))
+    }
 }

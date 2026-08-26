@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.leshoraa.kore.domain.model.AppRule
 import com.leshoraa.kore.domain.usecase.GetInstalledAppsUseCase
 import com.leshoraa.kore.domain.usecase.SaveAppRuleUseCase
+import com.leshoraa.kore.domain.usecase.SaveAppRulesUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -14,7 +15,8 @@ import kotlinx.coroutines.launch
  */
 class RulesViewModel(
     private val getInstalledAppsUseCase: GetInstalledAppsUseCase,
-    private val saveAppRuleUseCase: SaveAppRuleUseCase
+    private val saveAppRuleUseCase: SaveAppRuleUseCase,
+    private val saveAppRulesUseCase: SaveAppRulesUseCase
 ) : ViewModel() {
 
     private val _apps = MutableStateFlow<List<AppRule>>(emptyList())
@@ -48,6 +50,14 @@ class RulesViewModel(
             saveAppRuleUseCase(updatedRule)
             // Update local state for immediate UI feedback
             _apps.value = _apps.value.map { if (it.packageName == appRule.packageName) updatedRule else it }
+        }
+    }
+
+    fun toggleAll(enabled: Boolean) {
+        viewModelScope.launch {
+            val updatedApps = _apps.value.map { it.copy(isEnabled = enabled) }
+            saveAppRulesUseCase(updatedApps)
+            _apps.value = updatedApps
         }
     }
 }

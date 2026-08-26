@@ -26,6 +26,10 @@ class RuleRepositoryImpl(private val ruleDao: RuleDao) : RuleRepository {
         ruleDao.insertRule(rule.toEntity())
     }
 
+    override suspend fun saveRules(rules: List<AppRule>) {
+        ruleDao.insertRules(rules.map { it.toEntity() })
+    }
+
     override suspend fun deleteRule(packageName: String) {
         ruleDao.deleteRule(packageName)
     }

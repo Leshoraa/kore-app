@@ -13,6 +13,8 @@ import androidx.compose.material.icons.filled.BluetoothSearching
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -36,6 +38,16 @@ fun ScannerScreen(
     val connectionState by viewModel.connectionState.collectAsState()
 
     var deviceToConnect by remember { mutableStateOf<android.bluetooth.le.ScanResult?>(null) }
+
+    LaunchedEffect(Unit) {
+        viewModel.startScan()
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            viewModel.stopScan()
+        }
+    }
 
     if (deviceToConnect != null) {
         AlertDialog(
@@ -62,8 +74,8 @@ fun ScannerScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("BLE Scanner") },
+            CenterAlignedTopAppBar(
+                title = { Text("BLE Scanner", style = MaterialTheme.typography.titleMedium) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
@@ -117,7 +129,11 @@ fun DeviceItem(name: String, address: String, rssi: Int, onClick: () -> Unit) {
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(text = name, style = MaterialTheme.typography.titleMedium)
-            Text(text = address, style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+            Text(
+                text = address, 
+                style = MaterialTheme.typography.labelSmall, 
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
         Text(text = "$rssi dBm", style = MaterialTheme.typography.labelMedium)
     }

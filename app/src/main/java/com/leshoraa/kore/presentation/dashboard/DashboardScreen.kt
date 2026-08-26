@@ -1,20 +1,23 @@
 package com.leshoraa.kore.presentation.dashboard
 
 import android.bluetooth.BluetoothProfile
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BluetoothConnected
 import androidx.compose.material.icons.filled.BluetoothDisabled
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -28,10 +31,9 @@ import java.util.Locale
 @Composable
 fun DashboardScreen(
     viewModel: DashboardViewModel,
-    onNavigateToScanner: () -> Unit,
-    onNavigateToSettings: () -> Unit,
-    onNavigateToRules: () -> Unit,
-    onNavigateToLogs: () -> Unit
+    isDarkTheme: Boolean = false,
+    onToggleTheme: () -> Unit = {},
+    onNavigateToScanner: () -> Unit
 ) {
     val connectionState by viewModel.connectionState.collectAsState()
     val connectedDeviceName by viewModel.connectedDeviceName.collectAsState()
@@ -42,17 +44,14 @@ fun DashboardScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("KoRe Dashboard") },
+            CenterAlignedTopAppBar(
+                title = { Text("KoRe Dashboard", style = MaterialTheme.typography.titleMedium) },
                 actions = {
-                    IconButton(onClick = onNavigateToRules) {
-                        Icon(Icons.Default.FilterList, contentDescription = "Rules")
-                    }
-                    IconButton(onClick = onNavigateToLogs) {
-                        Icon(Icons.Default.History, contentDescription = "Logs")
-                    }
-                    IconButton(onClick = onNavigateToSettings) {
-                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                    IconButton(onClick = onToggleTheme) {
+                        Icon(
+                            if (isDarkTheme) Icons.Default.LightMode else Icons.Default.DarkMode,
+                            contentDescription = "Toggle Theme"
+                        )
                     }
                 }
             )
@@ -62,7 +61,7 @@ fun DashboardScreen(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
-                .padding(16.dp)
+                .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
             ConnectionStatusCard(
                 state = connectionState,
@@ -71,7 +70,7 @@ fun DashboardScreen(
                 onDisconnectClick = { viewModel.disconnect() }
             )
             
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
             TestMessageSection(
                 title = testTitle,
@@ -81,11 +80,11 @@ fun DashboardScreen(
                 onSendClick = { viewModel.sendTestMessage() }
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
             
             Text(
                 text = "Live Event Log",
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.secondary
             )
             
@@ -105,35 +104,47 @@ fun ConnectionStatusCard(
 ) {
     val isConnected = state == BluetoothProfile.STATE_CONNECTED
     
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+    OutlinedCard(
+        modifier = Modifier.fillMaxWidth()
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                imageVector = if (isConnected) Icons.Default.BluetoothConnected else Icons.Default.BluetoothDisabled,
-                contentDescription = null,
-                tint = if (isConnected) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error,
+            Surface(
+                color = if (isConnected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer,
+                shape = MaterialTheme.shapes.medium,
                 modifier = Modifier.size(48.dp)
-            )
-            Spacer(modifier = Modifier.width(16.dp))
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = if (isConnected) Icons.Default.BluetoothConnected else Icons.Default.BluetoothDisabled,
+                        contentDescription = null,
+                        tint = if (isConnected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = if (isConnected) "Connected: ${deviceName ?: "Unknown"}" else "Disconnected",
-                    style = MaterialTheme.typography.titleMedium
+                    text = if (isConnected) deviceName ?: "Connected" else "Disconnected",
+                    style = MaterialTheme.typography.titleSmall
                 )
                 Text(
-                    text = if (isConnected) "ESP32-S3 active" else "No hardware linked",
-                    style = MaterialTheme.typography.bodySmall
+                    text = if (isConnected) "Hardware active" else "No hardware linked",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            Button(onClick = if (isConnected) onDisconnectClick else onConnectClick) {
-                Text(if (isConnected) "Stop" else "Link")
+            if (isConnected) {
+                TextButton(onClick = onDisconnectClick) {
+                    Text("Stop")
+                }
+            } else {
+                FilledTonalButton(onClick = onConnectClick, contentPadding = PaddingValues(horizontal = 12.dp)) {
+                    Text("Link")
+                }
             }
         }
     }
@@ -147,42 +158,58 @@ fun TestMessageSection(
     onMessageChange: (String) -> Unit,
     onSendClick: () -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        border = CardDefaults.outlinedCardBorder()
+    var isExpanded by remember { mutableStateOf(false) }
+
+    OutlinedCard(
+        modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "Send Test Message",
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(
-                value = title,
-                onValueChange = onTitleChange,
-                label = { Text("Title") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedTextField(
-                value = message,
-                onValueChange = onMessageChange,
-                label = { Text("Message") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            Button(
-                onClick = onSendClick,
-                modifier = Modifier.align(Alignment.End),
-                enabled = title.isNotBlank() && message.isNotBlank()
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { isExpanded = !isExpanded },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text("Send to KoRe")
+                Text(
+                    text = "Push to Glasses",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Icon(
+                    imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = if (isExpanded) "Collapse" else "Expand",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+            
+            AnimatedVisibility(visible = isExpanded) {
+                Column {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = title,
+                        onValueChange = onTitleChange,
+                        label = { Text("Title") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.medium
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = message,
+                        onValueChange = onMessageChange,
+                        label = { Text("Message") },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.medium
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    FilledTonalButton(
+                        onClick = onSendClick,
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = title.isNotBlank() && message.isNotBlank()
+                    ) {
+                        Text("Send Test Message")
+                    }
+                }
             }
         }
     }
@@ -190,21 +217,26 @@ fun TestMessageSection(
 
 @Composable
 fun LogList(logs: List<NotificationEvent>) {
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surface
-    ) {
-        if (logs.isEmpty()) {
-            Box(contentAlignment = Alignment.Center) {
-                Text("Waiting for events...", color = Color.Gray)
-            }
-        } else {
-            LazyColumn(contentPadding = PaddingValues(8.dp)) {
-                items(logs) { event ->
-                    LogItem(event)
-                    HorizontalDivider(thickness = 0.5.dp, color = Color.Gray.copy(alpha = 0.5f))
-                }
+    if (logs.isEmpty()) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                "Waiting for events...",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    } else {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            items(logs) { event ->
+                LogItem(event)
             }
         }
     }
@@ -214,28 +246,19 @@ fun LogList(logs: List<NotificationEvent>) {
 fun LogItem(event: NotificationEvent) {
     val timeFormatter = remember { SimpleDateFormat("HH:mm:ss", Locale.getDefault()) }
     
-    Column(modifier = Modifier.padding(vertical = 8.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = event.appName,
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = timeFormatter.format(Date(event.postTimeMillis)),
-                style = MaterialTheme.typography.labelSmall,
-                color = Color.Gray
-            )
-        }
-        Text(text = event.title, style = MaterialTheme.typography.bodyMedium)
-        if (event.text.isNotEmpty()) {
-            Text(
-                text = event.text,
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.LightGray,
-                maxLines = 1
-            )
-        }
-    }
+    ListItem(
+        headlineContent = { Text(event.title) },
+        supportingContent = { 
+            if (event.text.isNotEmpty()) {
+                Text(event.text, maxLines = 1)
+            }
+        },
+        overlineContent = {
+            Text("${event.appName} • ${timeFormatter.format(Date(event.postTimeMillis))}")
+        },
+        colors = ListItemDefaults.colors(
+            containerColor = Color.Transparent
+        )
+    )
+    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
 }
