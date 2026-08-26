@@ -21,12 +21,14 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun ScannerScreen(
     viewModel: BleScannerViewModel,
+    onEnableBluetooth: () -> Unit = {},
     onDeviceSelected: () -> Unit,
     onNavigateBack: () -> Unit
 ) {
     val devices by viewModel.foundDevices.collectAsState()
     val isScanning by viewModel.isScanning.collectAsState()
     val connectionState by viewModel.connectionState.collectAsState()
+    val isBluetoothEnabled by viewModel.isBluetoothEnabled.collectAsState()
 
     var deviceToConnect by remember { mutableStateOf<android.bluetooth.le.ScanResult?>(null) }
     var isConnectingByDialog by remember { mutableStateOf(false) }
@@ -130,7 +132,10 @@ fun ScannerScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.startScan() }) {
+                    IconButton(
+                        onClick = { viewModel.startScan() },
+                        enabled = isBluetoothEnabled
+                    ) {
                         Icon(Icons.Default.Refresh, contentDescription = "Refresh")
                     }
                 }
@@ -138,6 +143,34 @@ fun ScannerScreen(
         }
     ) { padding ->
         Column(modifier = Modifier.padding(padding)) {
+            if (!isBluetoothEnabled) {
+                Box(modifier = Modifier.padding(16.dp)) {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer,
+                            contentColor = MaterialTheme.colorScheme.onErrorContainer
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Bluetooth, contentDescription = null)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "Bluetooth is off",
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            TextButton(onClick = onEnableBluetooth) {
+                                Text("ENABLE")
+                            }
+                        }
+                    }
+                }
+            }
+
             if (isScanning) {
                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             }

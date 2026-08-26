@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.StateFlow
  */
 interface BleRepository {
     val connectionState: StateFlow<Int>
+    val isBluetoothEnabled: StateFlow<Boolean>
     fun connect(address: String, deviceName: String? = null)
     fun disconnect()
     suspend fun sendNotification(event: NotificationEvent): Result<Unit>

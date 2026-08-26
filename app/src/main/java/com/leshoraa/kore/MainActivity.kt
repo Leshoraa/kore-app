@@ -1,5 +1,7 @@
 package com.leshoraa.kore
 
+import android.bluetooth.BluetoothAdapter
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -41,6 +43,12 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.RequestMultiplePermissions()
     ) { _ ->
         // Permission states handled by UI checks
+    }
+
+    private val enableBluetoothLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { _ ->
+        // Handle result if needed
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -113,6 +121,10 @@ class MainActivity : ComponentActivity() {
                                     viewModel = viewModel,
                                     isDarkTheme = darkTheme,
                                     onToggleTheme = { darkTheme = !darkTheme },
+                                    onEnableBluetooth = {
+                                        val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
+                                        enableBluetoothLauncher.launch(enableBtIntent)
+                                    },
                                     onNavigateToScanner = { navController.navigate("scanner") }
                                 )
                             }
@@ -125,6 +137,10 @@ class MainActivity : ComponentActivity() {
                                 }
                                 ScannerScreen(
                                     viewModel = viewModel,
+                                    onEnableBluetooth = {
+                                        val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
+                                        enableBluetoothLauncher.launch(enableBtIntent)
+                                    },
                                     onDeviceSelected = { navController.popBackStack() },
                                     onNavigateBack = { navController.popBackStack() }
                                 )

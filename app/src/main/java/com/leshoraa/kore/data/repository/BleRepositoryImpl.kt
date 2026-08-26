@@ -14,6 +14,7 @@ class BleRepositoryImpl(
 ) : BleRepository {
 
     override val connectionState = bleManager.connectionState
+    override val isBluetoothEnabled = bleManager.isBluetoothEnabled
 
     override fun connect(address: String, deviceName: String?) {
         bleManager.connect(address, deviceName)

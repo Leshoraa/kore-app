@@ -33,9 +33,11 @@ fun DashboardScreen(
     viewModel: DashboardViewModel,
     isDarkTheme: Boolean = false,
     onToggleTheme: () -> Unit = {},
+    onEnableBluetooth: () -> Unit = {},
     onNavigateToScanner: () -> Unit
 ) {
     val connectionState by viewModel.connectionState.collectAsState()
+    val isBluetoothEnabled by viewModel.isBluetoothEnabled.collectAsState()
     val connectedDeviceName by viewModel.connectedDeviceName.collectAsState()
     val brightness by viewModel.brightness.collectAsState()
     val logs by viewModel.logs.collectAsState()
@@ -64,6 +66,11 @@ fun DashboardScreen(
                 .fillMaxSize()
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
+            if (!isBluetoothEnabled) {
+                BluetoothDisabledWarning(onEnableClick = onEnableBluetooth)
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
             ConnectionStatusCard(
                 state = connectionState,
                 deviceName = connectedDeviceName,
@@ -124,9 +131,9 @@ fun ConnectionStatusCard(
         ) {
             Surface(
                 color = when {
-                    isConnected -> MaterialTheme.colorScheme.primaryContainer
-                    isConnecting -> MaterialTheme.colorScheme.tertiaryContainer
-                    else -> MaterialTheme.colorScheme.errorContainer
+                    isConnected -> MaterialTheme.colorScheme.primary
+                    isConnecting -> MaterialTheme.colorScheme.secondaryContainer
+                    else -> MaterialTheme.colorScheme.secondaryContainer
                 },
                 shape = MaterialTheme.shapes.medium,
                 modifier = Modifier.size(48.dp)
@@ -136,13 +143,13 @@ fun ConnectionStatusCard(
                         CircularProgressIndicator(
                             modifier = Modifier.size(22.dp),
                             strokeWidth = 2.5.dp,
-                            color = MaterialTheme.colorScheme.tertiary
+                            color = MaterialTheme.colorScheme.primary
                         )
                     } else {
                         Icon(
                             imageVector = if (isConnected) Icons.Default.BluetoothConnected else Icons.Default.BluetoothDisabled,
                             contentDescription = null,
-                            tint = if (isConnected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                            tint = if (isConnected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer,
                             modifier = Modifier.size(24.dp)
                         )
                     }
@@ -184,7 +191,7 @@ fun ConnectionStatusCard(
                     }
                 }
                 else -> {
-                    FilledTonalButton(onClick = onConnectClick, contentPadding = PaddingValues(horizontal = 12.dp)) {
+                    Button(onClick = onConnectClick, contentPadding = PaddingValues(horizontal = 12.dp)) {
                         Text("Link")
                     }
                 }
@@ -377,4 +384,45 @@ fun LogItem(event: NotificationEvent) {
         )
     )
     HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
+}
+
+@Composable
+fun BluetoothDisabledWarning(onEnableClick: () -> Unit) {
+    Card(
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer,
+            contentColor = MaterialTheme.colorScheme.onErrorContainer
+        ),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.BluetoothDisabled,
+                contentDescription = null,
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Bluetooth is turned off",
+                    style = MaterialTheme.typography.titleSmall
+                )
+                Text(
+                    text = "Required for hardware connection",
+                    style = MaterialTheme.typography.labelSmall
+                )
+            }
+            TextButton(
+                onClick = onEnableClick,
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Text("TURN ON")
+            }
+        }
+    }
 }

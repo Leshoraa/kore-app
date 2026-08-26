@@ -28,6 +28,9 @@ class DashboardViewModel(
     val connectionState = bleManager.connectionState
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), BluetoothProfile.STATE_DISCONNECTED)
 
+    val isBluetoothEnabled = bleManager.isBluetoothEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
     val connectedDeviceName = bleManager.connectedDeviceName
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 

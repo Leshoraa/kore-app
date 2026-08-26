@@ -3,14 +3,22 @@ package com.leshoraa.kore.core.ble
 import android.annotation.SuppressLint
 import android.bluetooth.*
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.content.BroadcastReceiver
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.launch
 import java.util.*
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
 
 /**
  * Core BLE engine for managing GATT connections and communications.
@@ -42,6 +50,29 @@ class BleManager(
 
     private val _negotiatedMtu = MutableStateFlow(23)
     val negotiatedMtu = _negotiatedMtu.asStateFlow()
+
+    val isBluetoothEnabled: StateFlow<Boolean> = callbackFlow {
+        val bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
+        if (bluetoothAdapter == null) {
+            trySend(false)
+            close()
+            return@callbackFlow
+        }
+
+        trySend(bluetoothAdapter.isEnabled)
+
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent?.action == BluetoothAdapter.ACTION_STATE_CHANGED) {
+                    val state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR)
+                    trySend(state == BluetoothAdapter.STATE_ON)
+                }
+            }
+        }
+
+        context.registerReceiver(receiver, IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED))
+        awaitClose { context.unregisterReceiver(receiver) }
+    }.stateIn(scope, SharingStarted.Eagerly, BluetoothAdapter.getDefaultAdapter()?.isEnabled ?: false)
 
     private val gattCallback = object : BluetoothGattCallback() {
         override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {

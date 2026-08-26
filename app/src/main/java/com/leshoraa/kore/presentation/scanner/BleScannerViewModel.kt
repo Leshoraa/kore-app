@@ -18,6 +18,9 @@ class BleScannerViewModel(
     val isScanning = bleScanner.isScanning
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
+    val isBluetoothEnabled = bleRepository.isBluetoothEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
     val connectionState = bleRepository.connectionState
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
