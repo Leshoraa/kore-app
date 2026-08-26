@@ -104,7 +104,9 @@ class MainActivity : ComponentActivity() {
                                     DashboardViewModel(
                                         ServiceLocator.provideBleManager(applicationContext),
                                         ServiceLocator.provideBleRepository(applicationContext),
-                                        ServiceLocator.provideNotificationRepository(applicationContext)
+                                        ServiceLocator.provideNotificationRepository(applicationContext),
+                                        ServiceLocator.providePreferencesManager(applicationContext),
+                                        ServiceLocator.provideSetBrightnessUseCase(applicationContext)
                                     )
                                 }
                                 DashboardScreen(

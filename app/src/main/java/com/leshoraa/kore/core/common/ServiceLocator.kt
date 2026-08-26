@@ -19,6 +19,7 @@ object ServiceLocator {
     private var bleManager: BleManager? = null
     private var bleScanner: BleScanner? = null
     private var database: AppDatabase? = null
+    private var preferencesManager: PreferencesManager? = null
 
     private fun provideDatabase(context: Context): AppDatabase {
         return database ?: synchronized(this) {
@@ -72,5 +73,24 @@ object ServiceLocator {
 
     fun provideSaveAppRulesUseCase(context: Context): SaveAppRulesUseCase {
         return SaveAppRulesUseCase(provideRuleRepository(context))
+    }
+
+    fun providePreferencesManager(context: Context): PreferencesManager {
+        return preferencesManager ?: synchronized(this) {
+            preferencesManager ?: PreferencesManager(context.applicationContext).also { preferencesManager = it }
+        }
+    }
+
+    fun provideSetBrightnessUseCase(context: Context): SetBrightnessUseCase {
+        return SetBrightnessUseCase(
+            provideBleRepository(context),
+            providePreferencesManager(context)
+        )
+    }
+
+    fun provideProcessNavigationUseCase(context: Context): ProcessNavigationUseCase {
+        return ProcessNavigationUseCase(
+            provideBleRepository(context)
+        )
     }
 }

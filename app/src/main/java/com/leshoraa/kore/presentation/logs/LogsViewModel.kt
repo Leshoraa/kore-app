@@ -7,6 +7,7 @@ import com.leshoraa.kore.domain.repository.NotificationRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 /**
  * ViewModel for viewing historical notification logs.
@@ -21,4 +22,10 @@ class LogsViewModel(
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptyList()
         )
+
+    fun clearLogs() {
+        viewModelScope.launch {
+            notificationRepository.clearLogs()
+        }
+    }
 }

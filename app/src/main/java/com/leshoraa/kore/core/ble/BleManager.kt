@@ -83,12 +83,14 @@ class BleManager(
     }
 
     fun connect(address: String, deviceName: String? = null) {
+        _connectionState.value = BluetoothProfile.STATE_CONNECTING
         val device = BluetoothAdapter.getDefaultAdapter().getRemoteDevice(address)
         _connectedDeviceName.value = deviceName ?: device.name
         bluetoothGatt = device.connectGatt(context, false, gattCallback, BluetoothDevice.TRANSPORT_LE)
     }
 
     fun disconnect() {
+        _connectionState.value = BluetoothProfile.STATE_DISCONNECTING
         bluetoothGatt?.disconnect()
     }
 

@@ -1,5 +1,6 @@
 package com.leshoraa.kore.domain.repository
 
+import com.leshoraa.kore.domain.model.NavEvent
 import com.leshoraa.kore.domain.model.NotificationEvent
 import kotlinx.coroutines.flow.StateFlow
 
@@ -11,4 +12,6 @@ interface BleRepository {
     fun connect(address: String, deviceName: String? = null)
     fun disconnect()
     suspend fun sendNotification(event: NotificationEvent): Result<Unit>
+    suspend fun sendBrightness(brightness: Int, save: Boolean = true): Result<Unit>
+    suspend fun sendNavigation(event: NavEvent): Result<Unit>
 }

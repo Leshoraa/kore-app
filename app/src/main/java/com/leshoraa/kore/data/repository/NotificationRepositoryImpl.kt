@@ -20,6 +20,10 @@ class NotificationRepositoryImpl(private val logDao: NotificationLogDao) : Notif
         logDao.insertLog(event.toEntity())
     }
 
+    override suspend fun clearLogs() {
+        logDao.clearLogs()
+    }
+
     private fun NotificationLogEntity.toDomain() = NotificationEvent(
         id = id.toString(),
         packageName = packageName,

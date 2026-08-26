@@ -9,13 +9,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BluetoothConnected
 import androidx.compose.material.icons.filled.BluetoothDisabled
+import androidx.compose.material.icons.filled.BrightnessLow
+import androidx.compose.material.icons.filled.BrightnessMedium
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.FilterList
-import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.LightMode
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -37,6 +36,7 @@ fun DashboardScreen(
 ) {
     val connectionState by viewModel.connectionState.collectAsState()
     val connectedDeviceName by viewModel.connectedDeviceName.collectAsState()
+    val brightness by viewModel.brightness.collectAsState()
     val logs by viewModel.logs.collectAsState()
     
     val testTitle by viewModel.testTitle.collectAsState()
@@ -70,7 +70,24 @@ fun DashboardScreen(
                 onDisconnectClick = { viewModel.disconnect() }
             )
             
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
+
+            BrightnessControlCard(
+                brightness = brightness,
+                connectionState = connectionState,
+                onBrightnessChange = { viewModel.onBrightnessChange(it) },
+                onBrightnessChangeFinished = { viewModel.onBrightnessChangeFinished() }
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Text(
+                text = "Live Event Log",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.secondary
+            )
+            
+            Spacer(modifier = Modifier.height(8.dp))
 
             TestMessageSection(
                 title = testTitle,
@@ -80,15 +97,7 @@ fun DashboardScreen(
                 onSendClick = { viewModel.sendTestMessage() }
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            Text(
-                text = "Live Event Log",
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.secondary
-            )
-            
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             
             LogList(logs = logs)
         }
@@ -103,6 +112,7 @@ fun ConnectionStatusCard(
     onDisconnectClick: () -> Unit
 ) {
     val isConnected = state == BluetoothProfile.STATE_CONNECTED
+    val isConnecting = state == BluetoothProfile.STATE_CONNECTING
     
     OutlinedCard(
         modifier = Modifier.fillMaxWidth()
@@ -112,39 +122,142 @@ fun ConnectionStatusCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
-                color = if (isConnected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer,
+                color = when {
+                    isConnected -> MaterialTheme.colorScheme.primaryContainer
+                    isConnecting -> MaterialTheme.colorScheme.tertiaryContainer
+                    else -> MaterialTheme.colorScheme.errorContainer
+                },
                 shape = MaterialTheme.shapes.medium,
                 modifier = Modifier.size(48.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = if (isConnected) Icons.Default.BluetoothConnected else Icons.Default.BluetoothDisabled,
-                        contentDescription = null,
-                        tint = if (isConnected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(24.dp)
-                    )
+                    if (isConnecting) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(22.dp),
+                            strokeWidth = 2.5.dp,
+                            color = MaterialTheme.colorScheme.tertiary
+                        )
+                    } else {
+                        Icon(
+                            imageVector = if (isConnected) Icons.Default.BluetoothConnected else Icons.Default.BluetoothDisabled,
+                            contentDescription = null,
+                            tint = if (isConnected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                 }
             }
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = if (isConnected) deviceName ?: "Connected" else "Disconnected",
+                    text = when {
+                        isConnected -> deviceName ?: "Connected"
+                        isConnecting -> deviceName ?: "Connecting..."
+                        else -> "Disconnected"
+                    },
                     style = MaterialTheme.typography.titleSmall
                 )
                 Text(
-                    text = if (isConnected) "Hardware active" else "No hardware linked",
+                    text = when {
+                        isConnected -> "Hardware active"
+                        isConnecting -> "Connecting to device..."
+                        else -> "No hardware linked"
+                    },
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            if (isConnected) {
-                TextButton(onClick = onDisconnectClick) {
-                    Text("Stop")
+            when {
+                isConnected -> {
+                    TextButton(onClick = onDisconnectClick) {
+                        Text("Stop")
+                    }
                 }
-            } else {
-                FilledTonalButton(onClick = onConnectClick, contentPadding = PaddingValues(horizontal = 12.dp)) {
-                    Text("Link")
+                isConnecting -> {
+                    OutlinedButton(
+                        onClick = onDisconnectClick,
+                        contentPadding = PaddingValues(horizontal = 10.dp),
+                        modifier = Modifier.height(34.dp)
+                    ) {
+                        Text("Cancel", style = MaterialTheme.typography.labelSmall)
+                    }
                 }
+                else -> {
+                    FilledTonalButton(onClick = onConnectClick, contentPadding = PaddingValues(horizontal = 12.dp)) {
+                        Text("Link")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun BrightnessControlCard(
+    brightness: Int,
+    connectionState: Int,
+    onBrightnessChange: (Int) -> Unit,
+    onBrightnessChangeFinished: () -> Unit
+) {
+    val isConnected = connectionState == BluetoothProfile.STATE_CONNECTED
+    val isConnecting = connectionState == BluetoothProfile.STATE_CONNECTING
+    val percent = brightness
+    
+    OutlinedCard(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = if (brightness > 66) Icons.Default.LightMode else if (brightness > 33) Icons.Default.BrightnessMedium else Icons.Default.BrightnessLow,
+                        contentDescription = "Brightness",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Display Brightness",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                Text(
+                    text = "$percent%",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Slider(
+                value = brightness.toFloat(),
+                onValueChange = { 
+                    val value = it.toInt()
+                    onBrightnessChange(if (value == 0) 1 else value)
+                },
+                onValueChangeFinished = onBrightnessChangeFinished,
+                valueRange = 0f..100f,
+                steps = 4,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            if (!isConnected) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = if (isConnecting) 
+                        "Connecting to KoRe device..." 
+                    else 
+                        "Hardware offline (saved preference will sync upon connection)",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
@@ -171,11 +284,13 @@ fun TestMessageSection(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(
-                    text = "Push to Glasses",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.primary
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "Push Test Notification",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
                 Icon(
                     imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                     contentDescription = if (isExpanded) "Collapse" else "Expand",
@@ -201,13 +316,13 @@ fun TestMessageSection(
                         modifier = Modifier.fillMaxWidth(),
                         shape = MaterialTheme.shapes.medium
                     )
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
                     FilledTonalButton(
                         onClick = onSendClick,
                         modifier = Modifier.fillMaxWidth(),
                         enabled = title.isNotBlank() && message.isNotBlank()
                     ) {
-                        Text("Send Test Message")
+                        Text("Send Notification")
                     }
                 }
             }
@@ -221,7 +336,7 @@ fun LogList(logs: List<NotificationEvent>) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(200.dp),
+                .height(160.dp),
             contentAlignment = Alignment.Center
         ) {
             Text(

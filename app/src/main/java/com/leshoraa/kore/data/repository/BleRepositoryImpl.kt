@@ -26,4 +26,12 @@ class BleRepositoryImpl(
     override suspend fun sendNotification(event: NotificationEvent): Result<Unit> {
         return dispatchEngine.dispatch(event)
     }
+
+    override suspend fun sendBrightness(brightness: Int, save: Boolean): Result<Unit> {
+        return dispatchEngine.dispatchBrightness(brightness, save)
+    }
+
+    override suspend fun sendNavigation(event: com.leshoraa.kore.domain.model.NavEvent): Result<Unit> {
+        return dispatchEngine.dispatchNavigation(event)
+    }
 }

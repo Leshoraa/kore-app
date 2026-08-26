@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.leshoraa.kore.presentation.theme.AppPalette
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,6 +74,7 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+
             Text(
                 text = "Stability Guards",
                 style = MaterialTheme.typography.titleMedium,
@@ -102,7 +104,7 @@ fun SettingsScreen(
                 title = "BLE UUID Config",
                 description = "Current: 6E400001 (Nordic UART Service)",
                 icon = Icons.Default.Bluetooth,
-                onClick = { /* TODO: Implement custom UUID editor if needed */ }
+                onClick = { /* Default NUS UUID */ }
             )
         }
     }

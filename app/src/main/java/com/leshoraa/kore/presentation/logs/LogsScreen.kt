@@ -6,12 +6,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -29,6 +27,31 @@ fun LogsScreen(
     onNavigateBack: (() -> Unit)? = null
 ) {
     val logs by viewModel.logs.collectAsState()
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("Clear Logs") },
+            text = { Text("Are you sure you want to clear all notification logs? This action cannot be undone.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.clearLogs()
+                        showDeleteConfirm = false
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Clear")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 
     Scaffold(
         topBar = {
@@ -42,6 +65,11 @@ fun LogsScreen(
                     }
                 },
                 actions = {
+                    if (logs.isNotEmpty()) {
+                        IconButton(onClick = { showDeleteConfirm = true }) {
+                            Icon(Icons.Default.Delete, contentDescription = "Clear Logs")
+                        }
+                    }
                     IconButton(onClick = onToggleTheme) {
                         Icon(
                             if (isDarkTheme) Icons.Default.LightMode else Icons.Default.DarkMode,

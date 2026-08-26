@@ -9,4 +9,5 @@ import kotlinx.coroutines.flow.Flow
 interface NotificationRepository {
     val recentEvents: Flow<List<NotificationEvent>>
     suspend fun logEvent(event: NotificationEvent)
+    suspend fun clearLogs()
 }

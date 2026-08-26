@@ -9,20 +9,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bluetooth
-import androidx.compose.material.icons.filled.BluetoothSearching
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 @SuppressLint("MissingPermission")
@@ -38,6 +29,7 @@ fun ScannerScreen(
     val connectionState by viewModel.connectionState.collectAsState()
 
     var deviceToConnect by remember { mutableStateOf<android.bluetooth.le.ScanResult?>(null) }
+    var isConnectingByDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.startScan()
@@ -49,24 +41,80 @@ fun ScannerScreen(
         }
     }
 
+    // Auto-navigate to dashboard once successfully connected
+    LaunchedEffect(connectionState) {
+        if (connectionState == BluetoothProfile.STATE_CONNECTED) {
+            isConnectingByDialog = false
+            deviceToConnect = null
+            onDeviceSelected()
+        } else if (connectionState == BluetoothProfile.STATE_DISCONNECTED && isConnectingByDialog) {
+            isConnectingByDialog = false
+        }
+    }
+
     if (deviceToConnect != null) {
+        val targetName = deviceToConnect?.device?.name ?: "Unknown Device"
+        val isConnecting = isConnectingByDialog || connectionState == BluetoothProfile.STATE_CONNECTING
+
         AlertDialog(
-            onDismissRequest = { deviceToConnect = null },
-            title = { Text("Hubungkan Perangkat") },
-            text = { Text("Apakah Anda ingin menghubungkan ke ${deviceToConnect?.device?.name ?: "Unknown Device"}?") },
-            confirmButton = {
-                Button(onClick = {
-                    val device = deviceToConnect!!
-                    viewModel.connect(device.device.address, device.device.name)
+            onDismissRequest = {
+                if (!isConnecting) {
                     deviceToConnect = null
-                    onDeviceSelected()
-                }) {
-                    Text("Hubungkan")
+                }
+            },
+            title = {
+                Text(if (isConnecting) "Connecting..." else "Connect Device")
+            },
+            text = {
+                if (isConnecting) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(28.dp),
+                            strokeWidth = 3.dp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Column {
+                            Text(
+                                text = "Connecting to $targetName",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Text(
+                                text = "Please wait...",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                } else {
+                    Text("Do you want to connect to $targetName?")
+                }
+            },
+            confirmButton = {
+                if (!isConnecting) {
+                    Button(onClick = {
+                        val device = deviceToConnect!!
+                        isConnectingByDialog = true
+                        viewModel.connect(device.device.address, device.device.name)
+                    }) {
+                        Text("Connect")
+                    }
                 }
             },
             dismissButton = {
-                TextButton(onClick = { deviceToConnect = null }) {
-                    Text("Batal")
+                TextButton(onClick = {
+                    if (isConnecting) {
+                        viewModel.disconnect()
+                        isConnectingByDialog = false
+                    }
+                    deviceToConnect = null
+                }) {
+                    Text("Cancel")
                 }
             }
         )
