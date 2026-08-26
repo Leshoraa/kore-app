@@ -1,14 +1,18 @@
 package com.leshoraa.kore.presentation.dashboard
 
 import android.bluetooth.BluetoothProfile
+import android.util.Log
 import androidx.lifecycle.ViewModel
+
 import androidx.lifecycle.viewModelScope
 import com.leshoraa.kore.core.ble.BleManager
 import com.leshoraa.kore.core.common.PreferencesManager
+import com.leshoraa.kore.domain.model.Expression
 import com.leshoraa.kore.domain.model.NotificationEvent
 import com.leshoraa.kore.domain.repository.BleRepository
 import com.leshoraa.kore.domain.repository.NotificationRepository
 import com.leshoraa.kore.domain.usecase.SetBrightnessUseCase
+import com.leshoraa.kore.domain.usecase.SetExpressionUseCase
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -22,7 +26,8 @@ class DashboardViewModel(
     private val bleRepository: BleRepository,
     private val notificationRepository: NotificationRepository,
     private val preferencesManager: PreferencesManager,
-    private val setBrightnessUseCase: SetBrightnessUseCase
+    private val setBrightnessUseCase: SetBrightnessUseCase,
+    private val setExpressionUseCase: SetExpressionUseCase
 ) : ViewModel() {
 
     val connectionState = bleManager.connectionState
@@ -40,6 +45,11 @@ class DashboardViewModel(
     private val _brightness = MutableStateFlow(preferencesManager.getBrightness())
     val brightness = _brightness.asStateFlow()
 
+    private val _selectedExpression = MutableStateFlow(
+        preferencesManager.getSelectedExpressionCode()?.let { Expression.fromCode(it) }
+    )
+    val selectedExpression = _selectedExpression.asStateFlow()
+
     private var liveBrightnessJob: Job? = null
 
     private val _testTitle = MutableStateFlow("")
@@ -49,7 +59,7 @@ class DashboardViewModel(
     val testMessage = _testMessage.asStateFlow()
 
     init {
-        // Synchronize persisted display brightness and emit connection notification frame
+        // Synchronize persisted KoRe brightness and expression on connection
         viewModelScope.launch {
             bleManager.connectionState.collect { state ->
                 if (state == BluetoothProfile.STATE_CONNECTED) {
@@ -57,10 +67,14 @@ class DashboardViewModel(
                     if (preferencesManager.isAutoSyncEnabled()) {
                         setBrightnessUseCase(_brightness.value, save = false)
                     }
+                    _selectedExpression.value?.let { expr ->
+                        setExpressionUseCase(expr)
+                    }
                 }
             }
         }
     }
+
 
     fun onBrightnessChange(newBrightness: Int) {
         val clamped = newBrightness.coerceIn(PreferencesManager.MIN_BRIGHTNESS, PreferencesManager.MAX_BRIGHTNESS)
@@ -114,5 +128,21 @@ class DashboardViewModel(
         }
     }
 
+    fun selectExpression(expression: Expression?) {
+        _selectedExpression.value = expression
+        viewModelScope.launch {
+            Log.d("DashboardViewModel", "Selecting expression: ${expression?.displayName ?: "Auto Mood"}")
+            val result = setExpressionUseCase(expression)
+            result.onSuccess {
+                Log.i("DashboardViewModel", "Expression successfully dispatched to BLE: ${expression?.displayName ?: "Auto Mood"}")
+            }.onFailure { error ->
+                Log.e("DashboardViewModel", "Failed to dispatch expression: ${error.message}", error)
+            }
+        }
+    }
+
     fun disconnect() = bleManager.disconnect()
 }
+
+
+

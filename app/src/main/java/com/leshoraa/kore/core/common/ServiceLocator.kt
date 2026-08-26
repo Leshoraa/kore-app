@@ -88,9 +88,17 @@ object ServiceLocator {
         )
     }
 
+    fun provideSetExpressionUseCase(context: Context): SetExpressionUseCase {
+        return SetExpressionUseCase(
+            provideBleRepository(context),
+            providePreferencesManager(context)
+        )
+    }
+
     fun provideProcessNavigationUseCase(context: Context): ProcessNavigationUseCase {
         return ProcessNavigationUseCase(
             provideBleRepository(context)
         )
     }
 }
+

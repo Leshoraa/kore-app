@@ -31,7 +31,6 @@ class BleManager(
     companion object {
         private const val TAG = "BleManager"
         
-        // ESP32-S3 Target UUIDs (NORDIC UART SERVICE)
         val SERVICE_UUID: UUID = UUID.fromString("6E400001-B5A3-F393-E0A9-E50E24DCCA9E")
         val CHARACTERISTIC_UUID_RX: UUID = UUID.fromString("6E400002-B5A3-F393-E0A9-E50E24DCCA9E")
         val CHARACTERISTIC_UUID_TX: UUID = UUID.fromString("6E400003-B5A3-F393-E0A9-E50E24DCCA9E")
@@ -86,9 +85,10 @@ class BleManager(
 
             _connectionState.value = newState
             if (newState == BluetoothProfile.STATE_CONNECTED) {
-                gatt.discoverServices()
                 scope.launch {
+                    kotlinx.coroutines.delay(150)
                     operationQueue.enqueue { gatt.requestMtu(DEFAULT_MTU) }
+                    gatt.discoverServices()
                 }
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 _connectedDeviceName.value = null
@@ -99,8 +99,10 @@ class BleManager(
 
         override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) {
             if (status == BluetoothGatt.GATT_SUCCESS) {
-                Log.i(TAG, "MTU changed to $mtu")
+                Log.i(TAG, "MTU negotiated to $mtu")
                 _negotiatedMtu.value = mtu
+            } else {
+                Log.w(TAG, "MTU negotiation status $status, keeping ${_negotiatedMtu.value}")
             }
         }
 
@@ -109,7 +111,7 @@ class BleManager(
         }
 
         override fun onCharacteristicWrite(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, status: Int) {
-            // Log write status
+            Log.d(TAG, "onCharacteristicWrite: UUID=${characteristic.uuid}, status=$status")
         }
     }
 
@@ -140,10 +142,32 @@ class BleManager(
         val characteristic = service.getCharacteristic(CHARACTERISTIC_UUID_RX) ?: return Result.failure(Exception("Char not found"))
 
         return operationQueue.enqueue {
-            characteristic.value = data
-            characteristic.writeType = BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
-            val success = gatt.writeCharacteristic(characteristic)
-            if (!success) throw Exception("writeCharacteristic failed")
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                val res = gatt.writeCharacteristic(characteristic, data, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT)
+                if (res != BluetoothStatusCodes.SUCCESS) {
+                    val fallback = gatt.writeCharacteristic(characteristic, data, BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE)
+                    if (fallback != BluetoothStatusCodes.SUCCESS) {
+                        Log.e(TAG, "GATT writeCharacteristic failed: code=$res, fallback=$fallback")
+                        throw Exception("writeCharacteristic failed with code $res")
+                    }
+                }
+            } else {
+                @Suppress("DEPRECATION")
+                characteristic.value = data
+                characteristic.writeType = BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
+                @Suppress("DEPRECATION")
+                val success = gatt.writeCharacteristic(characteristic)
+                if (!success) {
+                    characteristic.writeType = BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE
+                    @Suppress("DEPRECATION")
+                    val fallback = gatt.writeCharacteristic(characteristic)
+                    if (!fallback) {
+                        Log.e(TAG, "GATT writeCharacteristic failed on legacy API")
+                        throw Exception("writeCharacteristic failed")
+                    }
+                }
+            }
         }
     }
 }
+

@@ -11,7 +11,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.BatteryChargingFull
+import androidx.compose.material.icons.filled.Bluetooth
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -19,7 +23,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.leshoraa.kore.R
 import com.leshoraa.kore.presentation.theme.AppPalette
 import kotlinx.coroutines.launch
 
@@ -35,11 +41,11 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Settings & Optimization") },
+                title = { Text(stringResource(R.string.settings_title)) },
                 navigationIcon = {
                     if (onNavigateBack != null) {
                         IconButton(onClick = onNavigateBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                         }
                     }
                 }
@@ -53,7 +59,7 @@ fun SettingsScreen(
                 .padding(16.dp)
         ) {
             Text(
-                text = "Theme Palette",
+                text = stringResource(R.string.settings_theme_palette),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.primary
             )
@@ -76,15 +82,15 @@ fun SettingsScreen(
 
 
             Text(
-                text = "Stability Guards",
+                text = stringResource(R.string.settings_stability_guards),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.primary
             )
             Spacer(modifier = Modifier.height(16.dp))
 
             SettingItem(
-                title = "Battery Optimization",
-                description = "Ensure the app is not killed in the background.",
+                title = stringResource(R.string.settings_battery_optimization),
+                description = stringResource(R.string.settings_battery_optimization_desc),
                 icon = Icons.Default.BatteryChargingFull,
                 onClick = { requestIgnoreBatteryOptimizations(context) }
             )
@@ -92,8 +98,8 @@ fun SettingsScreen(
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
             SettingItem(
-                title = "Notification Access",
-                description = "Required to intercept and sync messages.",
+                title = stringResource(R.string.settings_notification_access),
+                description = stringResource(R.string.settings_notification_access_desc),
                 icon = Icons.Default.Notifications,
                 onClick = { openNotificationListenerSettings(context) }
             )
@@ -101,10 +107,10 @@ fun SettingsScreen(
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
             SettingItem(
-                title = "BLE UUID Config",
-                description = "Current: 6E400001 (Nordic UART Service)",
+                title = stringResource(R.string.settings_ble_config),
+                description = stringResource(R.string.settings_ble_config_desc),
                 icon = Icons.Default.Bluetooth,
-                onClick = { /* Default NUS UUID */ }
+                onClick = { }
             )
         }
     }
@@ -155,7 +161,7 @@ fun SettingItem(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = title, style = MaterialTheme.typography.bodyLarge)
@@ -165,7 +171,11 @@ fun SettingItem(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color.LightGray)
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

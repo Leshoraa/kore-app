@@ -13,7 +13,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.leshoraa.kore.R
 import com.leshoraa.kore.domain.model.NotificationEvent
 import java.text.SimpleDateFormat
 import java.util.*
@@ -32,8 +34,8 @@ fun LogsScreen(
     if (showDeleteConfirm) {
         AlertDialog(
             onDismissRequest = { showDeleteConfirm = false },
-            title = { Text("Clear Logs") },
-            text = { Text("Are you sure you want to clear all notification logs? This action cannot be undone.") },
+            title = { Text(stringResource(R.string.dialog_clear_logs_title)) },
+            text = { Text(stringResource(R.string.dialog_clear_logs_msg)) },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -42,12 +44,12 @@ fun LogsScreen(
                     },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("Clear")
+                    Text(stringResource(R.string.btn_clear))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirm = false }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.btn_cancel))
                 }
             }
         )
@@ -56,24 +58,24 @@ fun LogsScreen(
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Audit Logs", style = MaterialTheme.typography.titleMedium) },
+                title = { Text(stringResource(R.string.logs_title), style = MaterialTheme.typography.titleMedium) },
                 navigationIcon = {
                     if (onNavigateBack != null) {
                         IconButton(onClick = onNavigateBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                         }
                     }
                 },
                 actions = {
                     if (logs.isNotEmpty()) {
                         IconButton(onClick = { showDeleteConfirm = true }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Clear Logs")
+                            Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.btn_clear))
                         }
                     }
                     IconButton(onClick = onToggleTheme) {
                         Icon(
                             if (isDarkTheme) Icons.Default.LightMode else Icons.Default.DarkMode,
-                            contentDescription = "Toggle Theme"
+                            contentDescription = stringResource(R.string.toggle_theme)
                         )
                     }
                 }
@@ -88,7 +90,7 @@ fun LogsScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    "No logs found.",
+                    stringResource(R.string.msg_no_logs),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -125,5 +127,5 @@ fun LogEntryItem(event: NotificationEvent) {
             containerColor = Color.Transparent
         )
     )
-    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
+    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.8.dp)
 }

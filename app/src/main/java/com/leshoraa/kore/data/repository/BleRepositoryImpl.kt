@@ -2,6 +2,8 @@ package com.leshoraa.kore.data.repository
 
 import com.leshoraa.kore.core.ble.BleManager
 import com.leshoraa.kore.data.dispatcher.BleDispatchEngine
+import com.leshoraa.kore.domain.model.Expression
+import com.leshoraa.kore.domain.model.NavEvent
 import com.leshoraa.kore.domain.model.NotificationEvent
 import com.leshoraa.kore.domain.repository.BleRepository
 
@@ -32,7 +34,12 @@ class BleRepositoryImpl(
         return dispatchEngine.dispatchBrightness(brightness, save)
     }
 
-    override suspend fun sendNavigation(event: com.leshoraa.kore.domain.model.NavEvent): Result<Unit> {
+    override suspend fun sendNavigation(event: NavEvent): Result<Unit> {
         return dispatchEngine.dispatchNavigation(event)
     }
+
+    override suspend fun sendExpression(expression: Expression?): Result<Unit> {
+        return dispatchEngine.dispatchExpression(expression)
+    }
 }
+

@@ -15,7 +15,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.leshoraa.kore.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,11 +48,11 @@ fun RulesScreen(
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("App Filters", style = MaterialTheme.typography.titleMedium) },
+                title = { Text(stringResource(R.string.rules_title), style = MaterialTheme.typography.titleMedium) },
                 navigationIcon = {
                     if (onNavigateBack != null) {
                         IconButton(onClick = onNavigateBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                         }
                     }
                 },
@@ -58,7 +60,7 @@ fun RulesScreen(
                     IconButton(onClick = onToggleTheme) {
                         Icon(
                             if (isDarkTheme) Icons.Default.LightMode else Icons.Default.DarkMode,
-                            contentDescription = "Toggle Theme"
+                            contentDescription = stringResource(R.string.toggle_theme)
                         )
                     }
                 }
@@ -72,7 +74,7 @@ fun RulesScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 4.dp),
-                placeholder = { Text("Search apps...") },
+                placeholder = { Text(stringResource(R.string.search_apps_placeholder)) },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 singleLine = true,
                 shape = MaterialTheme.shapes.extraLarge,
@@ -98,7 +100,7 @@ fun RulesScreen(
                         FilterChip(
                             selected = selectedFilter == filter,
                             onClick = { selectedFilter = filter },
-                            label = { Text(filter.label) },
+                            label = { Text(stringResource(filter.labelRes)) },
                             leadingIcon = if (selectedFilter == filter) {
                                 { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp)) }
                             } else null
@@ -108,21 +110,21 @@ fun RulesScreen(
 
                 Box {
                     TextButton(onClick = { showMenu = true }) {
-                        Text("Select")
+                        Text(stringResource(R.string.btn_select))
                     }
                     DropdownMenu(
                         expanded = showMenu,
                         onDismissRequest = { showMenu = false }
                     ) {
                         DropdownMenuItem(
-                            text = { Text("Select All") },
+                            text = { Text(stringResource(R.string.menu_select_all)) },
                             onClick = {
                                 viewModel.toggleAll(true)
                                 showMenu = false
                             }
                         )
                         DropdownMenuItem(
-                            text = { Text("Deselect All") },
+                            text = { Text(stringResource(R.string.menu_deselect_all)) },
                             onClick = {
                                 viewModel.toggleAll(false)
                                 showMenu = false
@@ -153,10 +155,10 @@ fun RulesScreen(
     }
 }
 
-enum class FilterType(val label: String) {
-    ALL("All"),
-    ENABLED("Active"),
-    DISABLED("Inactive")
+enum class FilterType(val labelRes: Int) {
+    ALL(R.string.filter_all),
+    ENABLED(R.string.filter_active),
+    DISABLED(R.string.filter_inactive)
 }
 
 @Composable
@@ -174,5 +176,5 @@ fun AppRuleItem(appRule: com.leshoraa.kore.domain.model.AppRule, onToggle: () ->
             containerColor = Color.Transparent
         )
     )
-    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
+    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.8.dp)
 }

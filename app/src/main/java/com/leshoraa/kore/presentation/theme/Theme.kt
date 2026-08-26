@@ -25,6 +25,10 @@ private fun getLightColorScheme(palette: AppPalette): ColorScheme = when (palett
         background = ForestBackgroundLight,
         surface = ForestSurfaceLight,
         surfaceContainer = ForestSurfaceContainerLight,
+        surfaceVariant = ForestSecondaryContainerLight,
+        onSurfaceVariant = ForestOnSecondaryContainerLight,
+        outline = ForestSecondaryLight,
+        outlineVariant = ForestSecondaryLight.copy(alpha = 0.2f),
         error = ErrorRedLight,
         onError = OnErrorRedLight,
     )
@@ -40,6 +44,10 @@ private fun getLightColorScheme(palette: AppPalette): ColorScheme = when (palett
         background = PeachBackgroundLight,
         surface = PeachSurfaceLight,
         surfaceContainer = PeachSurfaceContainerLight,
+        surfaceVariant = PeachSecondaryContainerLight,
+        onSurfaceVariant = PeachOnSecondaryContainerLight,
+        outline = PeachSecondaryLight,
+        outlineVariant = PeachSecondaryLight.copy(alpha = 0.2f),
         error = ErrorRedLight,
         onError = OnErrorRedLight,
     )
@@ -55,6 +63,10 @@ private fun getLightColorScheme(palette: AppPalette): ColorScheme = when (palett
         background = LavenderBackgroundLight,
         surface = LavenderSurfaceLight,
         surfaceContainer = LavenderSurfaceContainerLight,
+        surfaceVariant = LavenderSecondaryContainerLight,
+        onSurfaceVariant = LavenderOnSecondaryContainerLight,
+        outline = LavenderSecondaryLight,
+        outlineVariant = LavenderSecondaryLight.copy(alpha = 0.2f),
         error = ErrorRedLight,
         onError = OnErrorRedLight,
     )
@@ -70,6 +82,10 @@ private fun getLightColorScheme(palette: AppPalette): ColorScheme = when (palett
         background = MidnightBackgroundLight,
         surface = MidnightSurfaceLight,
         surfaceContainer = MidnightSurfaceContainerLight,
+        surfaceVariant = MidnightSecondaryContainerLight,
+        onSurfaceVariant = MidnightOnSecondaryContainerLight,
+        outline = MidnightSecondaryLight,
+        outlineVariant = MidnightSecondaryLight.copy(alpha = 0.2f),
         error = ErrorRedLight,
         onError = OnErrorRedLight,
     )
@@ -88,6 +104,10 @@ private fun getDarkColorScheme(palette: AppPalette): ColorScheme = when (palette
         background = ForestBackgroundDark,
         surface = ForestSurfaceDark,
         surfaceContainer = ForestSurfaceContainerDark,
+        surfaceVariant = ForestSecondaryContainerDark,
+        onSurfaceVariant = ForestOnSecondaryContainerDark,
+        outline = ForestSecondaryDark,
+        outlineVariant = ForestSecondaryDark.copy(alpha = 0.2f),
         error = ErrorRedDark,
         onError = OnErrorRedDark,
     )
@@ -103,6 +123,10 @@ private fun getDarkColorScheme(palette: AppPalette): ColorScheme = when (palette
         background = PeachBackgroundDark,
         surface = PeachSurfaceDark,
         surfaceContainer = PeachSurfaceContainerDark,
+        surfaceVariant = PeachSecondaryContainerDark,
+        onSurfaceVariant = PeachOnSecondaryContainerDark,
+        outline = PeachSecondaryDark,
+        outlineVariant = PeachSecondaryDark.copy(alpha = 0.2f),
         error = ErrorRedDark,
         onError = OnErrorRedDark,
     )
@@ -118,6 +142,10 @@ private fun getDarkColorScheme(palette: AppPalette): ColorScheme = when (palette
         background = LavenderBackgroundDark,
         surface = LavenderSurfaceDark,
         surfaceContainer = LavenderSurfaceContainerDark,
+        surfaceVariant = LavenderSecondaryContainerDark,
+        onSurfaceVariant = LavenderOnSecondaryContainerDark,
+        outline = LavenderSecondaryDark,
+        outlineVariant = LavenderSecondaryDark.copy(alpha = 0.2f),
         error = ErrorRedDark,
         onError = OnErrorRedDark,
     )
@@ -133,10 +161,17 @@ private fun getDarkColorScheme(palette: AppPalette): ColorScheme = when (palette
         background = MidnightBackgroundDark,
         surface = MidnightSurfaceDark,
         surfaceContainer = MidnightSurfaceContainerDark,
+        surfaceVariant = MidnightSecondaryContainerDark,
+        onSurfaceVariant = MidnightOnSecondaryContainerDark,
+        outline = MidnightSecondaryDark,
+        outlineVariant = MidnightSecondaryDark.copy(alpha = 0.2f),
         error = ErrorRedDark,
         onError = OnErrorRedDark,
     )
 }
+
+
+
 
 @Composable
 fun KoReTheme(

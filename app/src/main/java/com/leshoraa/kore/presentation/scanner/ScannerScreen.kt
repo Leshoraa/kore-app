@@ -14,7 +14,9 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.leshoraa.kore.R
 
 @SuppressLint("MissingPermission")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -55,7 +57,7 @@ fun ScannerScreen(
     }
 
     if (deviceToConnect != null) {
-        val targetName = deviceToConnect?.device?.name ?: "Unknown Device"
+        val targetName = deviceToConnect?.device?.name ?: stringResource(R.string.device_unknown)
         val isConnecting = isConnectingByDialog || connectionState == BluetoothProfile.STATE_CONNECTING
 
         AlertDialog(
@@ -65,7 +67,7 @@ fun ScannerScreen(
                 }
             },
             title = {
-                Text(if (isConnecting) "Connecting..." else "Connect Device")
+                Text(if (isConnecting) stringResource(R.string.scanner_connecting) else stringResource(R.string.scanner_connect_device))
             },
             text = {
                 if (isConnecting) {
@@ -83,18 +85,18 @@ fun ScannerScreen(
                         )
                         Column {
                             Text(
-                                text = "Connecting to $targetName",
+                                text = stringResource(R.string.scanner_connecting_to, targetName),
                                 style = MaterialTheme.typography.bodyMedium
                             )
                             Text(
-                                text = "Please wait...",
+                                text = stringResource(R.string.scanner_please_wait),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
                 } else {
-                    Text("Do you want to connect to $targetName?")
+                    Text(stringResource(R.string.scanner_confirm_connect, targetName))
                 }
             },
             confirmButton = {
@@ -104,7 +106,7 @@ fun ScannerScreen(
                         isConnectingByDialog = true
                         viewModel.connect(device.device.address, device.device.name)
                     }) {
-                        Text("Connect")
+                        Text(stringResource(R.string.btn_connect))
                     }
                 }
             },
@@ -116,7 +118,7 @@ fun ScannerScreen(
                     }
                     deviceToConnect = null
                 }) {
-                    Text("Cancel")
+                    Text(stringResource(R.string.btn_cancel))
                 }
             }
         )
@@ -125,10 +127,10 @@ fun ScannerScreen(
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("BLE Scanner", style = MaterialTheme.typography.titleMedium) },
+                title = { Text(stringResource(R.string.scanner_title), style = MaterialTheme.typography.titleMedium) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.common_back))
                     }
                 },
                 actions = {
@@ -136,7 +138,7 @@ fun ScannerScreen(
                         onClick = { viewModel.startScan() },
                         enabled = isBluetoothEnabled
                     ) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.desc_refresh))
                     }
                 }
             )
@@ -159,12 +161,12 @@ fun ScannerScreen(
                             Icon(Icons.Default.Bluetooth, contentDescription = null)
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(
-                                text = "Bluetooth is off",
+                                text = stringResource(R.string.msg_bluetooth_is_off),
                                 modifier = Modifier.weight(1f),
                                 style = MaterialTheme.typography.bodyMedium
                             )
                             TextButton(onClick = onEnableBluetooth) {
-                                Text("ENABLE")
+                                Text(stringResource(R.string.btn_enable))
                             }
                         }
                     }
@@ -209,7 +211,7 @@ fun DeviceItem(name: String, address: String, rssi: Int, onClick: () -> Unit) {
         )
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = name, style = MaterialTheme.typography.titleMedium)
+            Text(text = name.ifBlank { stringResource(R.string.device_unknown) }, style = MaterialTheme.typography.titleMedium)
             Text(
                 text = address, 
                 style = MaterialTheme.typography.labelSmall, 

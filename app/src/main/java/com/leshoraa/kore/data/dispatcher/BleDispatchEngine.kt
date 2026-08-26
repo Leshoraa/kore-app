@@ -2,11 +2,13 @@ package com.leshoraa.kore.data.dispatcher
 
 import android.util.Log
 import com.leshoraa.kore.core.ble.BleManager
+import com.leshoraa.kore.domain.model.Expression
 import com.leshoraa.kore.domain.model.NavEvent
 import com.leshoraa.kore.domain.model.NotificationEvent
 
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+
 
 /**
  * Handles the logic of converting Domain Events into fragments and sending them via BleManager.
@@ -90,6 +92,31 @@ class BleDispatchEngine(private val bleManager: BleManager) {
             }
         }
     }
+
+    /**
+     * Serializes and transmits an expression selection command to the companion device.
+     *
+     * @param expression Target [Expression] to set, or null to restore autonomous Auto Mood.
+     */
+    suspend fun dispatchExpression(expression: Expression?): Result<Unit> = sendMutex.withLock {
+        return@withLock runCatching {
+            val exprVal = expression?.code?.toString() ?: "\"auto\""
+            val payload = """{"cmd":"set_expression","expr":$exprVal}"""
+            val data = payload.toByteArray(Charsets.UTF_8)
+            val mtu = bleManager.negotiatedMtu.value
+            val chunks = fragment(data, mtu)
+
+            Log.d(TAG, "Dispatching expression [$exprVal] in ${chunks.size} chunks: $payload")
+
+            chunks.forEachIndexed { index, chunk ->
+                bleManager.writeData(chunk).onFailure { error ->
+                    Log.e(TAG, "Failed to send expression chunk $index", error)
+                    throw error
+                }
+            }
+        }
+    }
+
 
     /**
      * Splits data into fragments that fit within the MTU.

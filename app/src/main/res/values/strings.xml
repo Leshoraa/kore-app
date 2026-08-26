@@ -1,3 +1,81 @@
 <resources>
     <string name="app_name">KoRe</string>
+
+    <!-- Navigation -->
+    <string name="nav_dashboard">Dashboard</string>
+    <string name="nav_filters">Filters</string>
+    <string name="nav_logs">Logs</string>
+    <string name="nav_settings">Settings</string>
+
+    <!-- Dashboard -->
+    <string name="dashboard_title">KoRe Dashboard</string>
+    <string name="toggle_theme">Toggle Theme</string>
+    <string name="live_event_log">Live Event Log</string>
+    <string name="btn_stop">Stop</string>
+    <string name="btn_cancel">Cancel</string>
+    <string name="btn_link">Link</string>
+    <string name="status_connected">Connected</string>
+    <string name="status_connecting">Connecting...</string>
+    <string name="status_disconnected">Disconnected</string>
+    <string name="label_hardware_active">Hardware active</string>
+    <string name="label_no_hardware_linked">No hardware linked</string>
+    <string name="label_brightness">Brightness</string>
+    <string name="title_kore_brightness">KoRe Brightness</string>
+    <string name="msg_hardware_offline">Hardware offline (saved preference will sync upon connection)</string>
+    <string name="label_expression">Expression</string>
+    <string name="label_auto_mood">Auto Mood</string>
+    <string name="btn_default_auto_mood">Default (Auto Mood)</string>
+    <string name="btn_default_auto_mood_selected">✓ Default (Auto Mood)</string>
+    <string name="title_push_test">Push Test Notification</string>
+    <string name="desc_collapse">Collapse</string>
+    <string name="desc_expand">Expand</string>
+    <string name="label_title">Title</string>
+    <string name="label_message">Message</string>
+    <string name="btn_send_notification">Send Notification</string>
+    <string name="msg_waiting_events">Waiting for events...</string>
+    <string name="msg_bluetooth_off">Bluetooth is turned off</string>
+    <string name="msg_bluetooth_required">Required for hardware connection</string>
+    <string name="btn_turn_on">TURN ON</string>
+
+    <!-- App Rules / Filters -->
+    <string name="rules_title">App Filters</string>
+    <string name="common_back">Back</string>
+    <string name="search_apps_placeholder">Search apps...</string>
+    <string name="btn_select">Select</string>
+    <string name="menu_select_all">Select All</string>
+    <string name="menu_deselect_all">Deselect All</string>
+    <string name="filter_all">All</string>
+    <string name="filter_active">Active</string>
+    <string name="filter_inactive">Inactive</string>
+
+    <!-- Logs -->
+    <string name="logs_title">Audit Logs</string>
+    <string name="dialog_clear_logs_title">Clear Logs</string>
+    <string name="dialog_clear_logs_msg">Are you sure you want to clear all notification logs? This action cannot be undone.</string>
+    <string name="btn_clear">Clear</string>
+    <string name="msg_no_logs">No logs found.</string>
+
+    <!-- Scanner -->
+    <string name="scanner_title">BLE Scanner</string>
+    <string name="scanner_connecting">Connecting...</string>
+    <string name="scanner_connect_device">Connect Device</string>
+    <string name="scanner_connecting_to">Connecting to %1$s</string>
+    <string name="scanner_please_wait">Please wait...</string>
+    <string name="scanner_confirm_connect">Do you want to connect to %1$s?</string>
+    <string name="btn_connect">Connect</string>
+    <string name="desc_refresh">Refresh</string>
+    <string name="msg_bluetooth_is_off">Bluetooth is off</string>
+    <string name="btn_enable">ENABLE</string>
+    <string name="device_unknown">Unknown Device</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings &amp; Optimization</string>
+    <string name="settings_theme_palette">Theme Palette</string>
+    <string name="settings_stability_guards">Stability Guards</string>
+    <string name="settings_battery_optimization">Battery Optimization</string>
+    <string name="settings_battery_optimization_desc">Ensure the app is not killed in the background.</string>
+    <string name="settings_notification_access">Notification Access</string>
+    <string name="settings_notification_access_desc">Required to intercept and sync messages.</string>
+    <string name="settings_ble_config">BLE UUID Config</string>
+    <string name="settings_ble_config_desc">Current: 6E400001 (Nordic UART Service)</string>
 </resources>

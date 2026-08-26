@@ -4,6 +4,7 @@ import android.bluetooth.BluetoothProfile
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -14,6 +15,7 @@ import androidx.compose.material.icons.filled.BrightnessMedium
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,11 +23,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import com.leshoraa.kore.R
+import com.leshoraa.kore.domain.model.Expression
 import com.leshoraa.kore.domain.model.NotificationEvent
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,7 +44,9 @@ fun DashboardScreen(
     val isBluetoothEnabled by viewModel.isBluetoothEnabled.collectAsState()
     val connectedDeviceName by viewModel.connectedDeviceName.collectAsState()
     val brightness by viewModel.brightness.collectAsState()
+    val selectedExpression by viewModel.selectedExpression.collectAsState()
     val logs by viewModel.logs.collectAsState()
+
     
     val testTitle by viewModel.testTitle.collectAsState()
     val testMessage by viewModel.testMessage.collectAsState()
@@ -48,66 +54,100 @@ fun DashboardScreen(
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("KoRe Dashboard", style = MaterialTheme.typography.titleMedium) },
+                title = { Text(stringResource(R.string.dashboard_title), style = MaterialTheme.typography.titleMedium) },
                 actions = {
                     IconButton(onClick = onToggleTheme) {
                         Icon(
                             if (isDarkTheme) Icons.Default.LightMode else Icons.Default.DarkMode,
-                            contentDescription = "Toggle Theme"
+                            contentDescription = stringResource(R.string.toggle_theme)
                         )
                     }
                 }
             )
         }
     ) { padding ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .padding(padding)
-                .fillMaxSize()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
         ) {
             if (!isBluetoothEnabled) {
-                BluetoothDisabledWarning(onEnableClick = onEnableBluetooth)
+                item {
+                    BluetoothDisabledWarning(onEnableClick = onEnableBluetooth)
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+            }
+
+            item {
+                ConnectionStatusCard(
+                    state = connectionState,
+                    deviceName = connectedDeviceName,
+                    onConnectClick = onNavigateToScanner,
+                    onDisconnectClick = { viewModel.disconnect() }
+                )
                 Spacer(modifier = Modifier.height(12.dp))
             }
 
-            ConnectionStatusCard(
-                state = connectionState,
-                deviceName = connectedDeviceName,
-                onConnectClick = onNavigateToScanner,
-                onDisconnectClick = { viewModel.disconnect() }
-            )
-            
-            Spacer(modifier = Modifier.height(12.dp))
+            item {
+                BrightnessControlCard(
+                    brightness = brightness,
+                    connectionState = connectionState,
+                    onBrightnessChange = { viewModel.onBrightnessChange(it) },
+                    onBrightnessChangeFinished = { viewModel.onBrightnessChangeFinished() }
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
 
-            BrightnessControlCard(
-                brightness = brightness,
-                connectionState = connectionState,
-                onBrightnessChange = { viewModel.onBrightnessChange(it) },
-                onBrightnessChangeFinished = { viewModel.onBrightnessChangeFinished() }
-            )
+            item {
+                ExpressionControlCard(
+                    selectedExpression = selectedExpression,
+                    connectionState = connectionState,
+                    onSelectExpression = { viewModel.selectExpression(it) }
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
 
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            Text(
-                text = "Live Event Log",
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.secondary
-            )
-            
-            Spacer(modifier = Modifier.height(8.dp))
+            item {
+                Text(
+                    text = stringResource(R.string.live_event_log),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.secondary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
 
-            TestMessageSection(
-                title = testTitle,
-                message = testMessage,
-                onTitleChange = { viewModel.onTestTitleChange(it) },
-                onMessageChange = { viewModel.onTestMessageChange(it) },
-                onSendClick = { viewModel.sendTestMessage() }
-            )
+            item {
+                TestMessageSection(
+                    title = testTitle,
+                    message = testMessage,
+                    onTitleChange = { viewModel.onTestTitleChange(it) },
+                    onMessageChange = { viewModel.onTestMessageChange(it) },
+                    onSendClick = { viewModel.sendTestMessage() }
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+            }
 
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            LogList(logs = logs)
+            if (logs.isEmpty()) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 200.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            stringResource(R.string.msg_waiting_events),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            } else {
+                items(logs) { event ->
+                    LogItem(event)
+                }
+            }
         }
     }
 }
@@ -159,17 +199,17 @@ fun ConnectionStatusCard(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = when {
-                        isConnected -> deviceName ?: "Connected"
-                        isConnecting -> deviceName ?: "Connecting..."
-                        else -> "Disconnected"
+                        isConnected -> deviceName ?: stringResource(R.string.status_connected)
+                        isConnecting -> deviceName ?: stringResource(R.string.status_connecting)
+                        else -> stringResource(R.string.status_disconnected)
                     },
                     style = MaterialTheme.typography.titleSmall
                 )
                 Text(
                     text = when {
-                        isConnected -> "Hardware active"
-                        isConnecting -> "Connecting to device..."
-                        else -> "No hardware linked"
+                        isConnected -> stringResource(R.string.label_hardware_active)
+                        isConnecting -> stringResource(R.string.status_connecting)
+                        else -> stringResource(R.string.label_no_hardware_linked)
                     },
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -178,7 +218,7 @@ fun ConnectionStatusCard(
             when {
                 isConnected -> {
                     TextButton(onClick = onDisconnectClick) {
-                        Text("Stop")
+                        Text(stringResource(R.string.btn_stop))
                     }
                 }
                 isConnecting -> {
@@ -187,12 +227,12 @@ fun ConnectionStatusCard(
                         contentPadding = PaddingValues(horizontal = 10.dp),
                         modifier = Modifier.height(34.dp)
                     ) {
-                        Text("Cancel", style = MaterialTheme.typography.labelSmall)
+                        Text(stringResource(R.string.btn_cancel), style = MaterialTheme.typography.labelSmall)
                     }
                 }
                 else -> {
                     Button(onClick = onConnectClick, contentPadding = PaddingValues(horizontal = 12.dp)) {
-                        Text("Link")
+                        Text(stringResource(R.string.btn_link))
                     }
                 }
             }
@@ -209,7 +249,6 @@ fun BrightnessControlCard(
 ) {
     val isConnected = connectionState == BluetoothProfile.STATE_CONNECTED
     val isConnecting = connectionState == BluetoothProfile.STATE_CONNECTING
-    val percent = brightness
     
     OutlinedCard(
         modifier = Modifier.fillMaxWidth()
@@ -223,20 +262,20 @@ fun BrightnessControlCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         imageVector = if (brightness > 66) Icons.Default.LightMode else if (brightness > 33) Icons.Default.BrightnessMedium else Icons.Default.BrightnessLow,
-                        contentDescription = "Brightness",
+                        contentDescription = stringResource(R.string.label_brightness),
                         tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Display Brightness",
+                        text = stringResource(R.string.title_kore_brightness),
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
 
                 Text(
-                    text = "$percent%",
+                    text = "${brightness}%",
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -246,13 +285,12 @@ fun BrightnessControlCard(
 
             Slider(
                 value = brightness.toFloat(),
-                onValueChange = { 
-                    val rounded = it.roundToInt()
-                    onBrightnessChange(if (rounded == 0) 1 else rounded)
+                onValueChange = { newValue ->
+                    onBrightnessChange(newValue.toInt())
                 },
                 onValueChangeFinished = onBrightnessChangeFinished,
-                valueRange = 0f..100f,
-                steps = 4,
+                valueRange = 1f..100f,
+                steps = 5,
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -260,9 +298,9 @@ fun BrightnessControlCard(
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = if (isConnecting) 
-                        "Connecting to KoRe device..." 
+                        stringResource(R.string.status_connecting) 
                     else 
-                        "Hardware offline (saved preference will sync upon connection)",
+                        stringResource(R.string.msg_hardware_offline),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -272,7 +310,123 @@ fun BrightnessControlCard(
 }
 
 @Composable
+fun ExpressionControlCard(
+    selectedExpression: Expression?,
+    connectionState: Int,
+    onSelectExpression: (Expression?) -> Unit
+) {
+    val isConnected = connectionState == BluetoothProfile.STATE_CONNECTED
+    val isConnecting = connectionState == BluetoothProfile.STATE_CONNECTING
+    var isExpanded by remember { mutableStateOf(false) }
+
+    OutlinedCard(
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { isExpanded = !isExpanded },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Face,
+                        contentDescription = stringResource(R.string.label_expression),
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = stringResource(R.string.label_expression),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                Icon(
+                    imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = if (isExpanded) stringResource(R.string.desc_collapse) else stringResource(R.string.desc_expand),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            AnimatedVisibility(visible = isExpanded) {
+                Column {
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Expression.entries.forEach { expr ->
+                            val isSelected = selectedExpression == expr
+                            ExpressionButton(
+                                expression = expr,
+                                isSelected = isSelected,
+                                onClick = { onSelectExpression(expr) }
+                            )
+                        }
+
+                        // Auto Mood as a reset chip
+                        val isAutoMood = selectedExpression == null
+                        FilterChip(
+                            selected = isAutoMood,
+                            onClick = { onSelectExpression(null) },
+                            label = { Text(stringResource(if (isAutoMood) R.string.btn_default_auto_mood_selected else R.string.btn_default_auto_mood)) },
+                            shape = CircleShape,
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        )
+                    }
+
+                    if (!isConnected) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = if (isConnecting)
+                                stringResource(R.string.status_connecting)
+                            else
+                                stringResource(R.string.msg_hardware_offline),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ExpressionButton(
+    expression: Expression,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    FilterChip(
+        selected = isSelected,
+        onClick = onClick,
+        label = { 
+            Text(
+                text = expression.displayName,
+                style = MaterialTheme.typography.labelMedium
+            )
+        },
+        shape = CircleShape,
+        colors = FilterChipDefaults.filterChipColors(
+            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+        )
+    )
+}
+
+@Composable
 fun TestMessageSection(
+
     title: String,
     message: String,
     onTitleChange: (String) -> Unit,
@@ -294,14 +448,14 @@ fun TestMessageSection(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "Push Test Notification",
+                        text = stringResource(R.string.title_push_test),
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.primary
                     )
                 }
                 Icon(
                     imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                    contentDescription = if (isExpanded) "Collapse" else "Expand",
+                    contentDescription = if (isExpanded) stringResource(R.string.desc_collapse) else stringResource(R.string.desc_expand),
                     tint = MaterialTheme.colorScheme.primary
                 )
             }
@@ -312,7 +466,7 @@ fun TestMessageSection(
                     OutlinedTextField(
                         value = title,
                         onValueChange = onTitleChange,
-                        label = { Text("Title") },
+                        label = { Text(stringResource(R.string.label_title)) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = MaterialTheme.shapes.medium
                     )
@@ -320,7 +474,7 @@ fun TestMessageSection(
                     OutlinedTextField(
                         value = message,
                         onValueChange = onMessageChange,
-                        label = { Text("Message") },
+                        label = { Text(stringResource(R.string.label_message)) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = MaterialTheme.shapes.medium
                     )
@@ -330,7 +484,7 @@ fun TestMessageSection(
                         modifier = Modifier.fillMaxWidth(),
                         enabled = title.isNotBlank() && message.isNotBlank()
                     ) {
-                        Text("Send Notification")
+                        Text(stringResource(R.string.btn_send_notification))
                     }
                 }
             }
@@ -338,32 +492,6 @@ fun TestMessageSection(
     }
 }
 
-@Composable
-fun LogList(logs: List<NotificationEvent>) {
-    if (logs.isEmpty()) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(160.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                "Waiting for events...",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    } else {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            items(logs) { event ->
-                LogItem(event)
-            }
-        }
-    }
-}
 
 @Composable
 fun LogItem(event: NotificationEvent) {
@@ -383,7 +511,7 @@ fun LogItem(event: NotificationEvent) {
             containerColor = Color.Transparent
         )
     )
-    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
+    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.8.dp)
 }
 
 @Composable
@@ -407,11 +535,11 @@ fun BluetoothDisabledWarning(onEnableClick: () -> Unit) {
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Bluetooth is turned off",
+                    text = stringResource(R.string.msg_bluetooth_off),
                     style = MaterialTheme.typography.titleSmall
                 )
                 Text(
-                    text = "Required for hardware connection",
+                    text = stringResource(R.string.msg_bluetooth_required),
                     style = MaterialTheme.typography.labelSmall
                 )
             }
@@ -421,7 +549,7 @@ fun BluetoothDisabledWarning(onEnableClick: () -> Unit) {
                     contentColor = MaterialTheme.colorScheme.error
                 )
             ) {
-                Text("TURN ON")
+                Text(stringResource(R.string.btn_turn_on))
             }
         }
     }
