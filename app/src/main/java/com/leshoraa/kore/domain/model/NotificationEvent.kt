@@ -1,7 +1,7 @@
 package com.leshoraa.kore.domain.model
 
 /**
- * Immutable domain entity representing a sanitized notification captured by the engine.
+ * Immutable domain entity representing a sanitized notification captured by the system.
  */
 data class NotificationEvent(
     val id: String,

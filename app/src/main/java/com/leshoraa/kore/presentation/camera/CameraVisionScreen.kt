@@ -160,11 +160,11 @@ fun CameraVisionScreen(
                                         strokeWidth = 2.dp
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text("Scanning...")
+                                    Text(stringResource(R.string.vision_status_discovering))
                                 } else {
                                     Icon(imageVector = Icons.Default.Search, contentDescription = null, modifier = Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Auto-Scan IP")
+                                    Text(stringResource(R.string.vision_btn_auto_scan))
                                 }
                             }
                             OutlinedButton(
@@ -846,7 +846,7 @@ private fun IpConfigDialog(
                 )
 
                 Text(
-                    text = "Quick Presets & Auto-Discovery:",
+                    text = stringResource(R.string.label_quick_presets),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.secondary
                 )
@@ -878,11 +878,11 @@ private fun IpConfigDialog(
                             strokeWidth = 2.dp
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Mencari KoRe di Wi-Fi...")
+                        Text(stringResource(R.string.vision_status_discovering))
                     } else {
                         Icon(imageVector = Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(6.dp))
-                        Text("Auto-Detect IP di Jaringan Ini")
+                        Text(stringResource(R.string.vision_btn_auto_scan))
                     }
                 }
             }

@@ -21,10 +21,15 @@ class FakeBleRepository : BleRepository {
     private val _isBluetoothEnabled = MutableStateFlow(true)
     override val isBluetoothEnabled: StateFlow<Boolean> = _isBluetoothEnabled.asStateFlow()
 
+    private val _deviceConfig = MutableStateFlow<com.leshoraa.kore.domain.model.DeviceNetworkConfig?>(null)
+    override val deviceConfigFlow: StateFlow<com.leshoraa.kore.domain.model.DeviceNetworkConfig?> = _deviceConfig.asStateFlow()
+
     var lastSentBrightness: Int? = null
     var lastSavedFlag: Boolean? = null
     var lastSentNavigation: NavEvent? = null
     var lastSentExpression: Expression? = null
+    var lastSentDeviceConfig: com.leshoraa.kore.domain.model.DeviceNetworkConfig? = null
+    var queryConfigCount = 0
 
     override fun connect(address: String, deviceName: String?) {}
     override fun disconnect() {}
@@ -46,6 +51,16 @@ class FakeBleRepository : BleRepository {
         lastSentExpression = expression
         return Result.success(Unit)
     }
+
+    override suspend fun sendDeviceConfig(config: com.leshoraa.kore.domain.model.DeviceNetworkConfig): Result<Unit> {
+        lastSentDeviceConfig = config
+        return Result.success(Unit)
+    }
+
+    override suspend fun queryDeviceConfig(): Result<Unit> {
+        queryConfigCount++
+        return Result.success(Unit)
+    }
 }
 
 class FakeUserPreferencesRepository : UserPreferencesRepository {
@@ -57,6 +72,11 @@ class FakeUserPreferencesRepository : UserPreferencesRepository {
 
     private val _selectedExpressionCode = MutableStateFlow<Int?>(null)
     override val selectedExpressionCode: StateFlow<Int?> = _selectedExpressionCode.asStateFlow()
+
+    private val _cameraHost = MutableStateFlow("192.168.4.1")
+    override val cameraHost: StateFlow<String> = _cameraHost.asStateFlow()
+
+    private var _deviceConfig = com.leshoraa.kore.domain.model.DeviceNetworkConfig()
 
     override fun getBrightness(): Int = _brightness.value
 
@@ -74,6 +94,18 @@ class FakeUserPreferencesRepository : UserPreferencesRepository {
 
     override fun setSelectedExpressionCode(code: Int?) {
         _selectedExpressionCode.value = code
+    }
+
+    override fun getCameraHost(): String = _cameraHost.value
+
+    override fun setCameraHost(host: String) {
+        _cameraHost.value = host
+    }
+
+    override fun getCachedDeviceConfig(): com.leshoraa.kore.domain.model.DeviceNetworkConfig = _deviceConfig
+
+    override fun setCachedDeviceConfig(config: com.leshoraa.kore.domain.model.DeviceNetworkConfig) {
+        _deviceConfig = config
     }
 }
 

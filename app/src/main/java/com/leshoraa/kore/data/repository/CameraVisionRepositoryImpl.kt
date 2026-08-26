@@ -82,4 +82,18 @@ class CameraVisionRepositoryImpl(
     override suspend fun autoDiscoverDevice(): String? {
         return discoveryScanner?.discoverKoReDevice()
     }
+
+    override suspend fun fetchDeviceConfig(host: String, port: Int): Result<com.leshoraa.kore.domain.model.DeviceNetworkConfig> {
+        val baseUrl = TelemetryHttpClient.formatBaseUrl(host, port)
+        return telemetryClient.fetchDeviceConfig(baseUrl)
+    }
+
+    override suspend fun saveDeviceConfig(
+        host: String,
+        port: Int,
+        config: com.leshoraa.kore.domain.model.DeviceNetworkConfig
+    ): Result<Unit> {
+        val baseUrl = TelemetryHttpClient.formatBaseUrl(host, port)
+        return telemetryClient.saveDeviceConfig(baseUrl, config)
+    }
 }

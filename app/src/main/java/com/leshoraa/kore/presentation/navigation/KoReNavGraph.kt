@@ -125,7 +125,15 @@ fun KoReNavGraph(
             )
         }
         composable("settings") {
+            val viewModel: com.leshoraa.kore.presentation.settings.SettingsViewModel = viewModel {
+                com.leshoraa.kore.presentation.settings.SettingsViewModel(
+                    ServiceLocator.provideGetDeviceConfigUseCase(context),
+                    ServiceLocator.provideSaveDeviceConfigUseCase(context),
+                    ServiceLocator.provideBleRepository(context)
+                )
+            }
             SettingsScreen(
+                viewModel = viewModel,
                 selectedPalette = selectedPalette,
                 onPaletteChange = onPaletteChange,
                 onNavigateToFilters = { navController.navigate("rules") }

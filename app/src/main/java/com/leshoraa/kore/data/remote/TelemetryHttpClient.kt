@@ -119,16 +119,89 @@ class TelemetryHttpClient {
             if (code == HttpURLConnection.HTTP_OK) {
                 Result.success(Unit)
             } else {
-                Result.failure(IllegalStateException("Sensor control HTTP error $code"))
+                Result.failure(IllegalStateException("HTTP $code"))
             }
         } catch (e: Exception) {
             Result.failure(e)
         } finally {
-            try {
-                connection?.disconnect()
-            } catch (_: Exception) {}
+            try { connection?.disconnect() } catch (_: Exception) {}
         }
     }
+    /**
+     * Fetches device network configuration from `/get_wifi`.
+     */
+    suspend fun fetchDeviceConfig(baseUrl: String): Result<com.leshoraa.kore.domain.model.DeviceNetworkConfig> = withContext(Dispatchers.IO) {
+        var connection: HttpURLConnection? = null
+        try {
+            val url = URL("$baseUrl/get_wifi")
+            connection = (url.openConnection() as HttpURLConnection).apply {
+                connectTimeout = TIMEOUT_MS
+                readTimeout = TIMEOUT_MS
+                requestMethod = "GET"
+                setRequestProperty("Accept", "application/json")
+            }
+
+            if (connection.responseCode == HttpURLConnection.HTTP_OK) {
+                val reader = BufferedReader(InputStreamReader(connection.inputStream))
+                val responseText = reader.use { it.readText() }
+                val json = JSONObject(responseText)
+                val config = com.leshoraa.kore.domain.model.DeviceNetworkConfig(
+                    staSsid = json.optString("sta_ssid", ""),
+                    staPass = json.optString("sta_pass", ""),
+                    apSsid = json.optString("ap_ssid", "KoRe"),
+                    apPass = json.optString("ap_pass", ""),
+                    bleName = json.optString("ble_name", "KoRe-Sense")
+                )
+                return@withContext Result.success(config)
+            }
+            Result.failure(IllegalStateException("HTTP ${connection.responseCode}"))
+        } catch (e: Exception) {
+            Result.failure(e)
+        } finally {
+            try { connection?.disconnect() } catch (_: Exception) {}
+        }
+    }
+
+    /**
+     * Sends network configuration update to `/save_wifi`.
+     */
+    suspend fun saveDeviceConfig(baseUrl: String, config: com.leshoraa.kore.domain.model.DeviceNetworkConfig): Result<Unit> = withContext(Dispatchers.IO) {
+        var connection: HttpURLConnection? = null
+        try {
+            val url = URL("$baseUrl/save_wifi")
+            val payload = JSONObject().apply {
+                put("sta_ssid", config.staSsid)
+                put("sta_pass", config.staPass)
+                put("ap_ssid", config.apSsid)
+                put("ap_pass", config.apPass)
+                put("ble_name", config.bleName)
+            }.toString()
+
+            connection = (url.openConnection() as HttpURLConnection).apply {
+                connectTimeout = TIMEOUT_MS
+                readTimeout = TIMEOUT_MS
+                requestMethod = "POST"
+                doOutput = true
+                setRequestProperty("Content-Type", "application/json")
+            }
+
+            OutputStreamWriter(connection.outputStream).use { writer ->
+                writer.write(payload)
+                writer.flush()
+            }
+
+            if (connection.responseCode == HttpURLConnection.HTTP_OK) {
+                Result.success(Unit)
+            } else {
+                Result.failure(IllegalStateException("Save config HTTP error ${connection.responseCode}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        } finally {
+            try { connection?.disconnect() } catch (_: Exception) {}
+        }
+    }
+
 
     private fun parseTelemetryJson(jsonString: String): TelemetryData {
         val json = JSONObject(jsonString)

@@ -11,7 +11,7 @@ import kotlinx.coroutines.withContext
  * Pure Kotlin UseCase to trigger expression changes on the KoRe companion device
  * and persist the user's expression preference.
  *
- * Passing null resets the companion hardware to its autonomous Auto Mood engine.
+ * Passing null resets the companion hardware to its autonomous Auto Mood mode.
  */
 class SetExpressionUseCase(
     private val bleRepository: BleRepository,

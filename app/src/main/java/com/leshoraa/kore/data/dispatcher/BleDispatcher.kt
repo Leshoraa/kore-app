@@ -13,10 +13,10 @@ import kotlinx.coroutines.sync.withLock
 /**
  * Handles the logic of converting Domain Events into fragments and sending them via BleManager.
  */
-class BleDispatchEngine(private val bleManager: BleManager) {
+class BleDispatcher(private val bleManager: BleManager) {
 
     companion object {
-        private const val TAG = "BleDispatchEngine"
+        private const val TAG = "BleDispatcher"
     }
 
     private val sendMutex = Mutex()
@@ -116,6 +116,35 @@ class BleDispatchEngine(private val bleManager: BleManager) {
             }
         }
     }
+
+    /**
+     * Serializes and transmits network/hardware configurations (Wi-Fi STA, AP Hotspot, BLE Name/PIN)
+     * to the companion device.
+     */
+    suspend fun dispatchDeviceConfig(config: com.leshoraa.kore.domain.model.DeviceNetworkConfig): Result<Unit> = sendMutex.withLock {
+        return@withLock runCatching {
+            val staS = escapeJson(config.staSsid)
+            val staP = escapeJson(config.staPass)
+            val apS = escapeJson(config.apSsid)
+            val apP = escapeJson(config.apPass)
+            val bleN = escapeJson(config.bleName)
+
+            val payload = """{"cmd":"save_device_config","sta_ssid":"$staS","sta_pass":"$staP","ap_ssid":"$apS","ap_pass":"$apP","ble_name":"$bleN"}"""
+            val data = payload.toByteArray(Charsets.UTF_8)
+            val mtu = bleManager.negotiatedMtu.value
+            val chunks = fragment(data, mtu)
+
+            Log.d(TAG, "Dispatching device config in ${chunks.size} chunks (sta=$staS, ap=$apS, ble=$bleN)")
+
+            chunks.forEachIndexed { index, chunk ->
+                bleManager.writeData(chunk).onFailure { error ->
+                    Log.e(TAG, "Failed to send device config chunk $index", error)
+                    throw error
+                }
+            }
+        }
+    }
+
 
 
     /**

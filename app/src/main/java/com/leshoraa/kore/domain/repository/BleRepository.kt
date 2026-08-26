@@ -11,11 +11,14 @@ import kotlinx.coroutines.flow.StateFlow
 interface BleRepository {
     val connectionState: StateFlow<Int>
     val isBluetoothEnabled: StateFlow<Boolean>
+    val deviceConfigFlow: StateFlow<com.leshoraa.kore.domain.model.DeviceNetworkConfig?>
     fun connect(address: String, deviceName: String? = null)
     fun disconnect()
     suspend fun sendNotification(event: NotificationEvent): Result<Unit>
     suspend fun sendBrightness(brightness: Int, save: Boolean = true): Result<Unit>
     suspend fun sendNavigation(event: NavEvent): Result<Unit>
     suspend fun sendExpression(expression: Expression?): Result<Unit>
+    suspend fun sendDeviceConfig(config: com.leshoraa.kore.domain.model.DeviceNetworkConfig): Result<Unit>
+    suspend fun queryDeviceConfig(): Result<Unit>
 }
 

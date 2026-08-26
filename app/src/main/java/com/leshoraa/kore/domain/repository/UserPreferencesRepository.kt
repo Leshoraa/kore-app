@@ -19,5 +19,7 @@ interface UserPreferencesRepository {
     fun setSelectedExpressionCode(code: Int?)
     fun getCameraHost(): String
     fun setCameraHost(host: String)
+    fun getCachedDeviceConfig(): com.leshoraa.kore.domain.model.DeviceNetworkConfig
+    fun setCachedDeviceConfig(config: com.leshoraa.kore.domain.model.DeviceNetworkConfig)
 }
 

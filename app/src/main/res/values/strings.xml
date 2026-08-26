@@ -14,12 +14,14 @@
     <string name="vision_host_placeholder">e.g. 192.168.4.1</string>
     <string name="vision_status_idle">Standby</string>
     <string name="vision_status_connecting">Connecting Stream...</string>
+    <string name="vision_status_discovering">Searching for KoRe on Wi-Fi...</string>
     <string name="vision_status_streaming">Streaming</string>
     <string name="vision_status_error">Connection Failed</string>
     <string name="vision_btn_start">Start Stream</string>
     <string name="vision_btn_stop">Stop Stream</string>
     <string name="vision_btn_settings">Camera Controls</string>
     <string name="vision_btn_ip">Configure IP</string>
+    <string name="vision_btn_auto_scan">Auto-Scan IP</string>
     <string name="vision_hud_fps">FPS</string>
     <string name="vision_hud_conf">CONF</string>
     <string name="vision_hud_human">HUMAN</string>
@@ -111,11 +113,37 @@
     <string name="settings_theme_palette">Appearance</string>
     <string name="settings_section_notifications">Notification Rules</string>
     <string name="settings_stability_guards">System Access</string>
-    <string name="settings_section_connectivity">Connectivity</string>
+    <string name="settings_section_connectivity">Connectivity &amp; Hardware</string>
     <string name="settings_battery_optimization">Battery Optimization</string>
     <string name="settings_battery_optimization_desc">Ensure the app is not killed in the background.</string>
     <string name="settings_notification_access">Notification Access</string>
     <string name="settings_notification_access_desc">Required to intercept and sync messages.</string>
-    <string name="settings_ble_config">BLE UUID Config</string>
-    <string name="settings_ble_config_desc">Current: 6E400001 (Nordic UART Service)</string>
+
+    <!-- Device Network & Hardware Configuration Dialog / Section -->
+    <string name="device_config_title">KoRe Device Setup</string>
+    <string name="device_config_desc">Configure Wi-Fi, Hotspot, and Bluetooth credentials.</string>
+    <string name="section_wifi_sta">Wi-Fi Router (STA Mode)</string>
+    <string name="label_sta_ssid">Wi-Fi SSID</string>
+    <string name="placeholder_sta_ssid">e.g. Home_Network</string>
+    <string name="label_sta_pass">Wi-Fi Password</string>
+    <string name="placeholder_sta_pass">Wi-Fi Password</string>
+    <string name="section_kore_ap">KoRe Hotspot (AP Mode)</string>
+    <string name="label_ap_ssid">Hotspot Name (SSID)</string>
+    <string name="placeholder_ap_ssid">e.g. KoRe</string>
+    <string name="label_ap_pass">Hotspot Password</string>
+    <string name="placeholder_ap_pass">Min 8 chars or blank (Open AP)</string>
+    <string name="section_bluetooth">Bluetooth (BLE)</string>
+    <string name="label_ble_name">Bluetooth Device Name</string>
+    <string name="placeholder_ble_name">e.g. KoRe-Sense</string>
+    <string name="btn_save_config">Save &amp; Restart KoRe</string>
+    <string name="msg_config_saved">Settings applied! KoRe is restarting...</string>
+    <string name="msg_config_error">Failed to send settings. Ensure KoRe is connected via BLE or Wi-Fi.</string>
+    <string name="err_ap_pass_length">Hotspot password must be at least 8 characters or empty.</string>
+
+    <!-- General Status -->
+    <string name="status_ble_connected">BLE Connected</string>
+    <string name="status_ble_disconnected">BLE Disconnected</string>
+    <string name="status_sync">Sync</string>
+    <string name="label_keep_existing">Keep existing</string>
+    <string name="label_quick_presets">Quick Presets &amp; Auto-Discovery:</string>
 </resources>

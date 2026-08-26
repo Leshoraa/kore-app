@@ -28,7 +28,7 @@ interface CameraVisionRepository {
     fun getCameraStream(host: String, port: Int = 81): Flow<Bitmap>
 
     /**
-     * Start polling real-time JSON telemetry from the embedded AI tracking engine.
+     * Start polling real-time JSON telemetry from the embedded AI tracking pipeline.
      *
      * @param host Target device IP or hostname.
      * @param port HTTP port for the telemetry endpoint (default: 80).
@@ -54,4 +54,14 @@ interface CameraVisionRepository {
      * @return Discovered IP address string, or null if not found.
      */
     suspend fun autoDiscoverDevice(): String?
+
+    /**
+     * Fetches current network and hardware device configurations via HTTP.
+     */
+    suspend fun fetchDeviceConfig(host: String, port: Int = 80): Result<com.leshoraa.kore.domain.model.DeviceNetworkConfig>
+
+    /**
+     * Saves network and hardware device configurations via HTTP.
+     */
+    suspend fun saveDeviceConfig(host: String, port: Int = 80, config: com.leshoraa.kore.domain.model.DeviceNetworkConfig): Result<Unit>
 }

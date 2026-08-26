@@ -34,8 +34,8 @@ class KoReForegroundService : Service() {
 
     private fun createNotification(): Notification {
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("KoRe Engine Active")
-            .setContentText("Monitoring notifications and BLE link...")
+            .setContentTitle("KoRe is Active")
+            .setContentText("Connected to your device")
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()

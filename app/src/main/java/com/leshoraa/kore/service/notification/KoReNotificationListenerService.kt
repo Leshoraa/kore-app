@@ -66,7 +66,7 @@ class KoReNotificationListenerService : NotificationListenerService() {
                         appName = "KoRe",
                         postTimeMillis = System.currentTimeMillis(),
                         title = "Success",
-                        text = "haloo",
+                        text = "Connected successfully",
                         isClearable = true
                     ))
                     

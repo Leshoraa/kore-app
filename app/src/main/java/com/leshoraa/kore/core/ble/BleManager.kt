@@ -6,6 +6,8 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.BroadcastReceiver
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -21,7 +23,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 
 /**
- * Core BLE engine for managing GATT connections and communications.
+ * Core BLE service for managing GATT connections and communications.
  */
 @SuppressLint("MissingPermission")
 class BleManager(
@@ -39,6 +41,7 @@ class BleManager(
     }
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val mainHandler = Handler(Looper.getMainLooper())
     private var bluetoothGatt: BluetoothGatt? = null
     
     private val _connectionState = MutableStateFlow(BluetoothProfile.STATE_DISCONNECTED)
@@ -49,6 +52,9 @@ class BleManager(
 
     private val _negotiatedMtu = MutableStateFlow(23)
     val negotiatedMtu = _negotiatedMtu.asStateFlow()
+
+    private val _deviceConfigFlow = MutableStateFlow<com.leshoraa.kore.domain.model.DeviceNetworkConfig?>(null)
+    val deviceConfigFlow: StateFlow<com.leshoraa.kore.domain.model.DeviceNetworkConfig?> = _deviceConfigFlow.asStateFlow()
 
     val isBluetoothEnabled: StateFlow<Boolean> = callbackFlow {
         val bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
@@ -78,7 +84,7 @@ class BleManager(
             Log.d(TAG, "onConnectionStateChange: status=$status, newState=$newState")
             
             if (status != BluetoothGatt.GATT_SUCCESS) {
-                // Catastrophic status 133 or other error: close and cleanup
+                Log.e(TAG, "GATT connection status error: $status, closing connection.")
                 handleGattError(gatt)
                 return
             }
@@ -86,14 +92,13 @@ class BleManager(
             _connectionState.value = newState
             if (newState == BluetoothProfile.STATE_CONNECTED) {
                 scope.launch {
-                    kotlinx.coroutines.delay(150)
-                    operationQueue.enqueue { gatt.requestMtu(DEFAULT_MTU) }
+                    // Allow connection handshake to stabilize
+                    kotlinx.coroutines.delay(350)
                     gatt.discoverServices()
                 }
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 _connectedDeviceName.value = null
-                gatt.close()
-                bluetoothGatt = null
+                handleGattError(gatt)
             }
         }
 
@@ -103,6 +108,11 @@ class BleManager(
                 _negotiatedMtu.value = mtu
             } else {
                 Log.w(TAG, "MTU negotiation status $status, keeping ${_negotiatedMtu.value}")
+            }
+            // Request current config from KoRe once MTU is set
+            scope.launch {
+                kotlinx.coroutines.delay(100)
+                writeData("""{"cmd":"get_config"}""".toByteArray(Charsets.UTF_8))
             }
         }
 
@@ -118,6 +128,12 @@ class BleManager(
                         cccd.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
                         gatt.writeDescriptor(cccd)
                     }
+                }
+
+                // Request MTU after services are discovered
+                scope.launch {
+                    kotlinx.coroutines.delay(200)
+                    operationQueue.enqueue { gatt.requestMtu(DEFAULT_MTU) }
                 }
             }
         }
@@ -154,27 +170,95 @@ class BleManager(
                 com.leshoraa.kore.core.common.ServiceLocator.providePreferencesManager(context).setCameraHost(ip)
             }
         }
+
+        if (text.contains("\"sta_ssid\":") || text.contains("\"ap_ssid\":") || text.contains("\"ble_name\":")) {
+            val prefs = com.leshoraa.kore.core.common.ServiceLocator.providePreferencesManager(context)
+            val current = prefs.getCachedDeviceConfig()
+            val staSsid = if (text.contains("\"sta_ssid\":\"")) text.substringAfter("\"sta_ssid\":\"").substringBefore("\"") else current.staSsid
+            val staPass = if (text.contains("\"sta_pass\":\"")) text.substringAfter("\"sta_pass\":\"").substringBefore("\"") else current.staPass
+            val apSsid = if (text.contains("\"ap_ssid\":\"")) text.substringAfter("\"ap_ssid\":\"").substringBefore("\"").ifBlank { current.apSsid } else current.apSsid
+            val apPass = if (text.contains("\"ap_pass\":\"")) text.substringAfter("\"ap_pass\":\"").substringBefore("\"") else current.apPass
+            val bleName = if (text.contains("\"ble_name\":\"")) text.substringAfter("\"ble_name\":\"").substringBefore("\"").ifBlank { current.bleName } else current.bleName
+
+            val updated = com.leshoraa.kore.domain.model.DeviceNetworkConfig(
+                staSsid = staSsid,
+                staPass = staPass,
+                apSsid = apSsid,
+                apPass = apPass,
+                bleName = bleName
+            )
+            prefs.setCachedDeviceConfig(updated)
+            _deviceConfigFlow.value = updated
+            Log.i(TAG, "Auto-synced Device Setup from BLE: STA=$staSsid, AP=$apSsid, BLE=$bleName")
+        }
+    }
+
+    suspend fun queryDeviceConfig(): Result<Unit> {
+        return writeData("""{"cmd":"get_config"}""".toByteArray(Charsets.UTF_8))
     }
 
     fun connect(address: String, deviceName: String? = null) {
         _connectionState.value = BluetoothProfile.STATE_CONNECTING
-        val device = BluetoothAdapter.getDefaultAdapter().getRemoteDevice(address)
-        _connectedDeviceName.value = deviceName ?: device.name
-        bluetoothGatt = device.connectGatt(context, false, gattCallback, BluetoothDevice.TRANSPORT_LE)
+        mainHandler.post {
+            try {
+                bluetoothGatt?.let {
+                    it.disconnect()
+                    it.close()
+                }
+                bluetoothGatt = null
+
+                val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+                val adapter = bluetoothManager?.adapter ?: BluetoothAdapter.getDefaultAdapter()
+                val device = adapter?.getRemoteDevice(address)
+                if (device == null) {
+                    _connectionState.value = BluetoothProfile.STATE_DISCONNECTED
+                    return@post
+                }
+                _connectedDeviceName.value = deviceName ?: device.name
+
+                bluetoothGatt = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                    device.connectGatt(context, false, gattCallback, BluetoothDevice.TRANSPORT_LE)
+                } else {
+                    device.connectGatt(context, false, gattCallback)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Exception during connectGatt: ${e.message}", e)
+                _connectionState.value = BluetoothProfile.STATE_DISCONNECTED
+            }
+        }
     }
 
     fun disconnect() {
         _connectionState.value = BluetoothProfile.STATE_DISCONNECTING
-        bluetoothGatt?.disconnect()
+        mainHandler.post {
+            try {
+                bluetoothGatt?.disconnect()
+                bluetoothGatt?.close()
+                bluetoothGatt = null
+            } catch (e: Exception) {
+                Log.e(TAG, "Exception during disconnect: ${e.message}", e)
+            } finally {
+                _connectionState.value = BluetoothProfile.STATE_DISCONNECTED
+                _connectedDeviceName.value = null
+            }
+        }
     }
 
     private fun handleGattError(gatt: BluetoothGatt) {
         Log.e(TAG, "GATT error detected. Closing handle to prevent status 133 leaks.")
-        gatt.disconnect()
-        gatt.close()
-        bluetoothGatt = null
-        _connectionState.value = BluetoothProfile.STATE_DISCONNECTED
-        _connectedDeviceName.value = null
+        mainHandler.post {
+            try {
+                gatt.disconnect()
+                gatt.close()
+            } catch (e: Exception) {
+                Log.w(TAG, "Error closing gatt: ${e.message}")
+            }
+            if (bluetoothGatt == gatt) {
+                bluetoothGatt = null
+            }
+            _connectionState.value = BluetoothProfile.STATE_DISCONNECTED
+            _connectedDeviceName.value = null
+        }
     }
 
     suspend fun writeData(data: ByteArray): Result<Unit> {

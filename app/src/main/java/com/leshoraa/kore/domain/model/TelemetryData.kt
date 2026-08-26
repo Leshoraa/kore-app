@@ -1,7 +1,7 @@
 package com.leshoraa.kore.domain.model
 
 /**
- * Represents a single secondary candidate target tracked by the embedded vision engine.
+ * Represents a single secondary candidate target tracked by the embedded vision pipeline.
  *
  * @property index Candidate slot index (0, 1, 2).
  * @property cx Bounding box center X coordinate in camera sensor frame space.

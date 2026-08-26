@@ -16,7 +16,7 @@ class BluetoothStateReceiver : BroadcastReceiver() {
             val state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR)
             when (state) {
                 BluetoothAdapter.STATE_OFF -> {
-                    Log.w("BluetoothReceiver", "Bluetooth turned OFF. Disconnecting engine.")
+                    Log.w("BluetoothReceiver", "Bluetooth turned OFF. Disconnecting service.")
                     ServiceLocator.provideBleManager(context).disconnect()
                 }
                 BluetoothAdapter.STATE_ON -> {

@@ -121,5 +121,21 @@ object ServiceLocator {
             provideBleRepository(context)
         )
     }
+
+    fun provideSaveDeviceConfigUseCase(context: Context): SaveDeviceConfigUseCase {
+        return SaveDeviceConfigUseCase(
+            provideBleRepository(context),
+            provideCameraVisionRepository(context),
+            providePreferencesManager(context)
+        )
+    }
+
+    fun provideGetDeviceConfigUseCase(context: Context): GetDeviceConfigUseCase {
+        return GetDeviceConfigUseCase(
+            provideBleRepository(context),
+            provideCameraVisionRepository(context),
+            providePreferencesManager(context)
+        )
+    }
 }
 

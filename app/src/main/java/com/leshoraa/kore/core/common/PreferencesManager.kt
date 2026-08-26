@@ -19,6 +19,10 @@ class PreferencesManager(context: Context) : UserPreferencesRepository {
         private const val KEY_SELECTED_EXPRESSION = "key_selected_expression"
         private const val KEY_CAMERA_HOST = "key_camera_host"
         
+        private const val KEY_LAST_STA_SSID = "key_last_sta_ssid"
+        private const val KEY_LAST_AP_SSID = "key_last_ap_ssid"
+        private const val KEY_LAST_BLE_NAME = "key_last_ble_name"
+        
         const val DEFAULT_BRIGHTNESS = 100
         const val MIN_BRIGHTNESS = 1
         const val MAX_BRIGHTNESS = 100
@@ -80,6 +84,24 @@ class PreferencesManager(context: Context) : UserPreferencesRepository {
         val cleaned = host.trim()
         _cameraHost.value = cleaned
         sharedPreferences.edit().putString(KEY_CAMERA_HOST, cleaned).apply()
+    }
+
+    override fun getCachedDeviceConfig(): com.leshoraa.kore.domain.model.DeviceNetworkConfig {
+        return com.leshoraa.kore.domain.model.DeviceNetworkConfig(
+            staSsid = sharedPreferences.getString(KEY_LAST_STA_SSID, "") ?: "",
+            staPass = "",
+            apSsid = sharedPreferences.getString(KEY_LAST_AP_SSID, "KoRe") ?: "KoRe",
+            apPass = "",
+            bleName = sharedPreferences.getString(KEY_LAST_BLE_NAME, "KoRe-Sense") ?: "KoRe-Sense"
+        )
+    }
+
+    override fun setCachedDeviceConfig(config: com.leshoraa.kore.domain.model.DeviceNetworkConfig) {
+        sharedPreferences.edit()
+            .putString(KEY_LAST_STA_SSID, config.staSsid)
+            .putString(KEY_LAST_AP_SSID, config.apSsid)
+            .putString(KEY_LAST_BLE_NAME, config.bleName)
+            .apply()
     }
 
     private fun valToExpressionCode(value: Int): Int? {

@@ -3,7 +3,7 @@ package com.leshoraa.kore.domain.model
 /**
  * Discrete 2D facial emotional expressions rendered on the companion OLED display.
  *
- * Conforms to the hardware affective engine specification and Web UI control indices.
+ * Conforms to the hardware affective system specification and Web UI control indices.
  *
  * @property code Integer opcode sent over the communication transport layer.
  * @property displayName Human-readable label matching the Web dashboard buttons.
