@@ -143,11 +143,17 @@ fun RulesScreen(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(bottom = 16.dp)
                 ) {
-                    items(filteredApps, key = { it.packageName }) { app ->
-                        AppRuleItem(
-                            appRule = app,
-                            onToggle = { viewModel.toggleAppRule(app) }
-                        )
+                    items(
+                        items = filteredApps,
+                        key = { it.packageName },
+                        contentType = { "app_rule" }
+                    ) { app ->
+                        Box(modifier = Modifier.animateItem()) {
+                            AppRuleItem(
+                                appRule = app,
+                                onToggle = { viewModel.toggleAppRule(app) }
+                            )
+                        }
                     }
                 }
             }

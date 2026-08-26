@@ -101,8 +101,14 @@ fun LogsScreen(
                     .fillMaxSize()
                     .padding(padding)
             ) {
-                items(logs) { event ->
-                    LogEntryItem(event)
+                items(
+                    items = logs,
+                    key = { it.id },
+                    contentType = { "log_entry" }
+                ) { event ->
+                    Box(modifier = Modifier.animateItem()) {
+                        LogEntryItem(event)
+                    }
                 }
             }
         }

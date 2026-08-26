@@ -73,13 +73,13 @@ fun DashboardScreen(
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
         ) {
             if (!isBluetoothEnabled) {
-                item {
+                item(key = "bluetooth_warning", contentType = "warning") {
                     BluetoothDisabledWarning(onEnableClick = onEnableBluetooth)
                     Spacer(modifier = Modifier.height(12.dp))
                 }
             }
 
-            item {
+            item(key = "connection_card", contentType = "card") {
                 ConnectionStatusCard(
                     state = connectionState,
                     deviceName = connectedDeviceName,
@@ -89,7 +89,7 @@ fun DashboardScreen(
                 Spacer(modifier = Modifier.height(12.dp))
             }
 
-            item {
+            item(key = "brightness_card", contentType = "card") {
                 BrightnessControlCard(
                     brightness = brightness,
                     connectionState = connectionState,
@@ -99,7 +99,7 @@ fun DashboardScreen(
                 Spacer(modifier = Modifier.height(12.dp))
             }
 
-            item {
+            item(key = "expression_card", contentType = "card") {
                 ExpressionControlCard(
                     selectedExpression = selectedExpression,
                     connectionState = connectionState,
@@ -108,7 +108,7 @@ fun DashboardScreen(
                 Spacer(modifier = Modifier.height(12.dp))
             }
 
-            item {
+            item(key = "log_header", contentType = "header") {
                 Text(
                     text = stringResource(R.string.live_event_log),
                     style = MaterialTheme.typography.titleSmall,
@@ -117,7 +117,7 @@ fun DashboardScreen(
                 Spacer(modifier = Modifier.height(8.dp))
             }
 
-            item {
+            item(key = "test_section", contentType = "card") {
                 TestMessageSection(
                     title = testTitle,
                     message = testMessage,
@@ -129,7 +129,7 @@ fun DashboardScreen(
             }
 
             if (logs.isEmpty()) {
-                item {
+                item(key = "empty_log", contentType = "placeholder") {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -144,8 +144,14 @@ fun DashboardScreen(
                     }
                 }
             } else {
-                items(logs) { event ->
-                    LogItem(event)
+                items(
+                    items = logs,
+                    key = { it.id },
+                    contentType = { "log_item" }
+                ) { event ->
+                    Box(modifier = Modifier.animateItem()) {
+                        LogItem(event)
+                    }
                 }
             }
         }
