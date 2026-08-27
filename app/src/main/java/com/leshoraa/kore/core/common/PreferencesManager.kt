@@ -22,6 +22,14 @@ class PreferencesManager(context: Context) : UserPreferencesRepository {
         private const val KEY_LAST_STA_SSID = "key_last_sta_ssid"
         private const val KEY_LAST_AP_SSID = "key_last_ap_ssid"
         private const val KEY_LAST_BLE_NAME = "key_last_ble_name"
+        private const val KEY_LAST_BLE_ADDR = "key_last_ble_addr"
+        private const val KEY_LAST_DEV_NAME = "key_last_dev_name"
+        
+        private const val KEY_WEATHER_CITY = "key_weather_city"
+        private const val KEY_WEATHER_LAT = "key_weather_lat"
+        private const val KEY_WEATHER_LON = "key_weather_lon"
+        private const val KEY_WEATHER_ENABLED = "key_weather_enabled"
+        private const val KEY_WEATHER_TZ = "key_weather_tz"
         
         const val DEFAULT_BRIGHTNESS = 100
         const val MIN_BRIGHTNESS = 1
@@ -101,6 +109,50 @@ class PreferencesManager(context: Context) : UserPreferencesRepository {
             .putString(KEY_LAST_STA_SSID, config.staSsid)
             .putString(KEY_LAST_AP_SSID, config.apSsid)
             .putString(KEY_LAST_BLE_NAME, config.bleName)
+            .apply()
+    }
+
+    override fun getLastConnectedBleAddress(): String? {
+        return sharedPreferences.getString(KEY_LAST_BLE_ADDR, null)
+    }
+
+    override fun setLastConnectedBleAddress(address: String?) {
+        if (address.isNullOrBlank()) {
+            sharedPreferences.edit().remove(KEY_LAST_BLE_ADDR).apply()
+        } else {
+            sharedPreferences.edit().putString(KEY_LAST_BLE_ADDR, address.trim()).apply()
+        }
+    }
+
+    override fun getLastConnectedBleName(): String? {
+        return sharedPreferences.getString(KEY_LAST_DEV_NAME, null)
+    }
+
+    override fun setLastConnectedBleName(name: String?) {
+        if (name.isNullOrBlank()) {
+            sharedPreferences.edit().remove(KEY_LAST_DEV_NAME).apply()
+        } else {
+            sharedPreferences.edit().putString(KEY_LAST_DEV_NAME, name.trim()).apply()
+        }
+    }
+
+    override fun getCachedWeatherConfig(): com.leshoraa.kore.domain.model.WeatherLocationConfig {
+        return com.leshoraa.kore.domain.model.WeatherLocationConfig(
+            city = sharedPreferences.getString(KEY_WEATHER_CITY, "Jakarta") ?: "Jakarta",
+            latitude = java.lang.Double.longBitsToDouble(sharedPreferences.getLong(KEY_WEATHER_LAT, java.lang.Double.doubleToRawLongBits(-6.2088))),
+            longitude = java.lang.Double.longBitsToDouble(sharedPreferences.getLong(KEY_WEATHER_LON, java.lang.Double.doubleToRawLongBits(106.8456))),
+            isEnabled = sharedPreferences.getBoolean(KEY_WEATHER_ENABLED, true),
+            timezoneOffsetSec = sharedPreferences.getInt(KEY_WEATHER_TZ, 25200)
+        )
+    }
+
+    override fun setCachedWeatherConfig(config: com.leshoraa.kore.domain.model.WeatherLocationConfig) {
+        sharedPreferences.edit()
+            .putString(KEY_WEATHER_CITY, config.city)
+            .putLong(KEY_WEATHER_LAT, java.lang.Double.doubleToRawLongBits(config.latitude))
+            .putLong(KEY_WEATHER_LON, java.lang.Double.doubleToRawLongBits(config.longitude))
+            .putBoolean(KEY_WEATHER_ENABLED, config.isEnabled)
+            .putInt(KEY_WEATHER_TZ, config.timezoneOffsetSec)
             .apply()
     }
 

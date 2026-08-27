@@ -1,9 +1,15 @@
 package com.leshoraa.kore.presentation.settings
 
+import android.Manifest
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -46,6 +52,37 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
+    val weatherState by viewModel.weatherState.collectAsState()
+
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val granted = permissions.values.any { it }
+        if (granted) {
+            viewModel.acquireLocationFromPhone()
+        }
+    }
+
+    val gpsLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            viewModel.acquireLocationFromPhone()
+        }
+        viewModel.clearResolvableException()
+    }
+
+    LaunchedEffect(weatherState.resolvableSettingsException) {
+        weatherState.resolvableSettingsException?.let { exception ->
+            try {
+                gpsLauncher.launch(
+                    IntentSenderRequest.Builder(exception.resolution).build()
+                )
+            } catch (e: Exception) {
+                viewModel.clearResolvableException()
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -88,6 +125,31 @@ fun SettingsScreen(
                     )
                 }
             }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Section: Weather & Ambient Display
+            Text(
+                text = stringResource(R.string.settings_section_weather),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+
+            SettingItem(
+                title = stringResource(R.string.weather_config_title),
+                description = stringResource(R.string.weather_config_desc),
+                icon = Icons.Default.Cloud,
+                onClick = { viewModel.openWeatherDialog() }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            AmbientGlancesCard(
+                isBleConnected = uiState.isBleConnected,
+                onShowClock = viewModel::showClock,
+                onShowWeather = viewModel::showWeather
+            )
 
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -166,6 +228,38 @@ fun SettingsScreen(
             onDismiss = viewModel::closeDialog
         )
     }
+
+    if (weatherState.isDialogOpen) {
+        WeatherConfigDialog(
+            state = weatherState,
+            isBleConnected = uiState.isBleConnected,
+            onCityChange = viewModel::onWeatherCityChanged,
+            onLatChange = viewModel::onWeatherLatChanged,
+            onLonChange = viewModel::onWeatherLonChanged,
+            onEnabledChange = viewModel::onWeatherEnabledChanged,
+            onTzChange = viewModel::onWeatherTzChanged,
+            onPresetSelected = viewModel::applyWeatherPreset,
+            onUseGpsLocation = {
+                val hasFine = context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                val hasCoarse = context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                
+                if (hasFine || hasCoarse) {
+                    viewModel.acquireLocationFromPhone()
+                } else {
+                    locationPermissionLauncher.launch(
+                        arrayOf(
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION
+                        )
+                    )
+                }
+            },
+            onSyncNow = viewModel::syncTimeAndWeatherNow,
+            onRefresh = viewModel::loadWeatherConfig,
+            onSave = viewModel::saveWeatherConfig,
+            onDismiss = viewModel::closeWeatherDialog
+        )
+    }
 }
 
 @Composable
@@ -189,13 +283,13 @@ fun DeviceConfigDialog(
         Surface(
             modifier = Modifier
                 .fillMaxWidth(0.95f)
-                .fillMaxHeight(0.9f),
-            shape = RoundedCornerShape(28.dp),
+                .wrapContentHeight(),
+            shape = RoundedCornerShape(16.dp),
             color = MaterialTheme.colorScheme.surface,
             tonalElevation = 6.dp
         ) {
             Column(
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.wrapContentHeight()
             ) {
                 // Header: Clean & Integrated
                 Row(
@@ -499,4 +593,403 @@ private fun requestIgnoreBatteryOptimizations(context: Context) {
 
 private fun openNotificationListenerSettings(context: Context) {
     context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+}
+
+@Composable
+fun AmbientGlancesCard(
+    isBleConnected: Boolean,
+    onShowClock: () -> Unit,
+    onShowWeather: () -> Unit
+) {
+    OutlinedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Widgets,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Column {
+                    Text(
+                        text = stringResource(R.string.title_ambient_glances),
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = stringResource(R.string.desc_ambient_glances),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                FilledTonalButton(
+                    onClick = onShowClock,
+                    modifier = Modifier.weight(1f),
+                    enabled = isBleConnected,
+                    shape = MaterialTheme.shapes.medium
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AccessTime,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = stringResource(R.string.btn_show_clock),
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
+
+                FilledTonalButton(
+                    onClick = onShowWeather,
+                    modifier = Modifier.weight(1f),
+                    enabled = isBleConnected,
+                    shape = MaterialTheme.shapes.medium
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Cloud,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = stringResource(R.string.btn_show_weather),
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
+            }
+
+            if (!isBleConnected) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = stringResource(R.string.msg_hardware_offline),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun WeatherConfigDialog(
+    state: WeatherConfigUiState,
+    isBleConnected: Boolean,
+    onCityChange: (String) -> Unit,
+    onLatChange: (String) -> Unit,
+    onLonChange: (String) -> Unit,
+    onEnabledChange: (Boolean) -> Unit,
+    onTzChange: (Int) -> Unit,
+    onPresetSelected: (com.leshoraa.kore.domain.model.WeatherLocationConfig) -> Unit,
+    onUseGpsLocation: () -> Unit,
+    onSyncNow: () -> Unit,
+    onRefresh: () -> Unit,
+    onSave: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .wrapContentHeight(),
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 6.dp
+        ) {
+            Column(
+                modifier = Modifier.wrapContentHeight()
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 24.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = stringResource(R.string.weather_config_title),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = if (isBleConnected) stringResource(R.string.status_ble_connected) else stringResource(R.string.status_ble_disconnected),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (isBleConnected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                        )
+                    }
+
+                    Row {
+                        IconButton(onClick = onRefresh) {
+                            Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.status_sync), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        IconButton(onClick = onDismiss) {
+                            Icon(Icons.Default.Close, contentDescription = "Close", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+
+                // Main Scrollable Content
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(20.dp)
+                ) {
+                    // Feedback Messages
+                    if (state.successMessage != null || state.errorMessage != null) {
+                        val isError = state.errorMessage != null
+                        Surface(
+                            color = if (isError) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f) else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = if (isError) Icons.Default.Error else Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
+                                Text(
+                                    text = state.errorMessage ?: state.successMessage ?: "",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = if (isError) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            }
+                        }
+                    }
+
+                    // Section: Location & Coordinates
+                    ConfigSection(title = stringResource(R.string.label_weather_city), icon = Icons.Default.LocationOn) {
+                        OutlinedButton(
+                            onClick = onUseGpsLocation,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            enabled = !state.isAcquiringLocation
+                        ) {
+                            if (state.isAcquiringLocation) {
+                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Detecting GPS Location...", style = MaterialTheme.typography.labelMedium)
+                            } else {
+                                Icon(Icons.Default.MyLocation, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(stringResource(R.string.btn_use_gps), style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
+
+                        CustomTextField(
+                            value = state.city,
+                            onValueChange = onCityChange,
+                            label = stringResource(R.string.label_weather_city),
+                            placeholder = stringResource(R.string.placeholder_weather_city)
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = state.latitude,
+                                onValueChange = onLatChange,
+                                label = { Text(stringResource(R.string.label_weather_lat), style = MaterialTheme.typography.bodyMedium) },
+                                placeholder = { Text(stringResource(R.string.placeholder_weather_lat), style = MaterialTheme.typography.bodyMedium) },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp),
+                                textStyle = MaterialTheme.typography.bodyLarge,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    unfocusedContainerColor = Color.Transparent,
+                                    focusedContainerColor = Color.Transparent,
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                                    focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                )
+                            )
+
+                            OutlinedTextField(
+                                value = state.longitude,
+                                onValueChange = onLonChange,
+                                label = { Text(stringResource(R.string.label_weather_lon), style = MaterialTheme.typography.bodyMedium) },
+                                placeholder = { Text(stringResource(R.string.placeholder_weather_lon), style = MaterialTheme.typography.bodyMedium) },
+                                singleLine = true,
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp),
+                                textStyle = MaterialTheme.typography.bodyLarge,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    unfocusedContainerColor = Color.Transparent,
+                                    focusedContainerColor = Color.Transparent,
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                                    focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                )
+                            )
+                        }
+                    }
+
+                    // Section: Quick Presets
+                    ConfigSection(title = stringResource(R.string.label_city_presets), icon = Icons.Default.Public) {
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            com.leshoraa.kore.domain.model.WeatherLocationConfig.PRESETS.forEach { preset ->
+                                val isSelected = state.city.equals(preset.city, ignoreCase = true)
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = { onPresetSelected(preset) },
+                                    label = { Text(preset.city, style = MaterialTheme.typography.labelSmall) },
+                                    shape = CircleShape,
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                    )
+                                )
+                            }
+                        }
+                    }
+
+                    // Section: Timezone Offset
+                    ConfigSection(title = stringResource(R.string.label_weather_tz), icon = Icons.Default.Schedule) {
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            listOf(
+                                "WIB (UTC+7)" to 25200,
+                                "WITA (UTC+8)" to 28800,
+                                "WIT (UTC+9)" to 32400,
+                                "GMT (UTC+0)" to 0,
+                                "EST (UTC-5)" to -18000
+                            ).forEach { (label, offsetSec) ->
+                                val isSelected = state.timezoneOffsetSec == offsetSec
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = { onTzChange(offsetSec) },
+                                    label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                                    shape = CircleShape,
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                        selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                )
+                            }
+                        }
+                    }
+
+                    // Section: Spontaneous Ambient Glance Toggle
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(R.string.label_weather_enabled),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Text(
+                                    text = "Periodically preview weather and clock on OLED automatically.",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = state.isEnabled,
+                                onCheckedChange = onEnabledChange
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                // Actions Footer
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = onSyncNow,
+                            enabled = !state.isSaving && isBleConnected,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.weight(1f),
+                            contentPadding = PaddingValues(vertical = 12.dp)
+                        ) {
+                            Icon(Icons.Default.CloudSync, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(stringResource(R.string.btn_sync_now), style = MaterialTheme.typography.labelMedium)
+                        }
+
+                        Button(
+                            onClick = onSave,
+                            enabled = !state.isSaving && isBleConnected,
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.weight(1f),
+                            contentPadding = PaddingValues(vertical = 12.dp)
+                        ) {
+                            if (state.isSaving) {
+                                CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+                            } else {
+                                Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(stringResource(R.string.btn_save_weather), style = MaterialTheme.typography.labelMedium)
+                            }
+                        }
+                    }
+
+                    TextButton(
+                        onClick = onDismiss,
+                        enabled = !state.isSaving,
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    ) {
+                        Text(stringResource(R.string.btn_cancel))
+                    }
+                }
+            }
+        }
+    }
 }

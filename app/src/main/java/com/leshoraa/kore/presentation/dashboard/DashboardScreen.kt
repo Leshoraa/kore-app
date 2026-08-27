@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -50,8 +51,18 @@ fun DashboardScreen(
     
     val testTitle by viewModel.testTitle.collectAsState()
     val testMessage by viewModel.testMessage.collectAsState()
+    val snackbarMessage by viewModel.snackbarMessage.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(snackbarMessage) {
+        snackbarMessage?.let { msg ->
+            snackbarHostState.showSnackbar(msg)
+            viewModel.clearSnackbarMessage()
+        }
+    }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text(stringResource(R.string.dashboard_title), style = MaterialTheme.typography.titleMedium) },
@@ -107,6 +118,8 @@ fun DashboardScreen(
                 )
                 Spacer(modifier = Modifier.height(12.dp))
             }
+
+
 
             item(key = "log_header", contentType = "header") {
                 Text(
@@ -560,3 +573,5 @@ fun BluetoothDisabledWarning(onEnableClick: () -> Unit) {
         }
     }
 }
+
+

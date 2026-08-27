@@ -9,21 +9,18 @@ import android.content.BroadcastReceiver
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.launch
-import java.util.*
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
+import java.util.*
 
 /**
- * Core BLE service for managing GATT connections and communications.
+ * Core BLE service for managing GATT connections, auto-reconnection, and communications.
  */
 @SuppressLint("MissingPermission")
 class BleManager(
@@ -38,6 +35,7 @@ class BleManager(
         val CHARACTERISTIC_UUID_TX: UUID = UUID.fromString("6E400003-B5A3-F393-E0A9-E50E24DCCA9E")
         
         const val DEFAULT_MTU = 517
+        private const val AUTO_RECONNECT_DELAY_MS = 3500L
     }
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -56,6 +54,12 @@ class BleManager(
     private val _deviceConfigFlow = MutableStateFlow<com.leshoraa.kore.domain.model.DeviceNetworkConfig?>(null)
     val deviceConfigFlow: StateFlow<com.leshoraa.kore.domain.model.DeviceNetworkConfig?> = _deviceConfigFlow.asStateFlow()
 
+    private val _weatherConfigFlow = MutableStateFlow<com.leshoraa.kore.domain.model.WeatherLocationConfig?>(null)
+    val weatherConfigFlow: StateFlow<com.leshoraa.kore.domain.model.WeatherLocationConfig?> = _weatherConfigFlow.asStateFlow()
+
+    private var userRequestedDisconnect = false
+    private var autoReconnectJob: Job? = null
+
     val isBluetoothEnabled: StateFlow<Boolean> = callbackFlow {
         val bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
         if (bluetoothAdapter == null) {
@@ -70,7 +74,11 @@ class BleManager(
             override fun onReceive(context: Context?, intent: Intent?) {
                 if (intent?.action == BluetoothAdapter.ACTION_STATE_CHANGED) {
                     val state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR)
-                    trySend(state == BluetoothAdapter.STATE_ON)
+                    val isEnabled = (state == BluetoothAdapter.STATE_ON)
+                    trySend(isEnabled)
+                    if (isEnabled) {
+                        reconnectLastDevice()
+                    }
                 }
             }
         }
@@ -79,21 +87,33 @@ class BleManager(
         awaitClose { context.unregisterReceiver(receiver) }
     }.stateIn(scope, SharingStarted.Eagerly, BluetoothAdapter.getDefaultAdapter()?.isEnabled ?: false)
 
+    init {
+        // Automatically attempt to reconnect to last known device if Bluetooth is on
+        scope.launch {
+            delay(1000)
+            if (isBluetoothEnabled.value) {
+                reconnectLastDevice()
+            }
+        }
+    }
+
     private val gattCallback = object : BluetoothGattCallback() {
         override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
             Log.d(TAG, "onConnectionStateChange: status=$status, newState=$newState")
             
             if (status != BluetoothGatt.GATT_SUCCESS) {
-                Log.e(TAG, "GATT connection status error: $status, closing connection.")
+                Log.e(TAG, "GATT connection status error: $status, closing connection handle.")
                 handleGattError(gatt)
                 return
             }
 
             _connectionState.value = newState
             if (newState == BluetoothProfile.STATE_CONNECTED) {
+                autoReconnectJob?.cancel()
+                autoReconnectJob = null
                 scope.launch {
-                    // Allow connection handshake to stabilize
-                    kotlinx.coroutines.delay(350)
+                    // Allow connection handshake to stabilize before service discovery
+                    delay(350)
                     gatt.discoverServices()
                 }
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
@@ -111,7 +131,7 @@ class BleManager(
             }
             // Request current config from KoRe once MTU is set
             scope.launch {
-                kotlinx.coroutines.delay(100)
+                delay(100)
                 writeData("""{"cmd":"get_config"}""".toByteArray(Charsets.UTF_8))
             }
         }
@@ -119,6 +139,13 @@ class BleManager(
         override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
             Log.i(TAG, "Services discovered with status $status")
             if (status == BluetoothGatt.GATT_SUCCESS) {
+                // Request balanced connection priority to prevent OS Doze dormancy
+                try {
+                    gatt.requestConnectionPriority(BluetoothGatt.CONNECTION_PRIORITY_BALANCED)
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to request connection priority: ${e.message}")
+                }
+
                 val service = gatt.getService(SERVICE_UUID)
                 val txChar = service?.getCharacteristic(CHARACTERISTIC_UUID_TX)
                 if (txChar != null) {
@@ -132,7 +159,7 @@ class BleManager(
 
                 // Request MTU after services are discovered
                 scope.launch {
-                    kotlinx.coroutines.delay(200)
+                    delay(200)
                     operationQueue.enqueue { gatt.requestMtu(DEFAULT_MTU) }
                 }
             }
@@ -191,6 +218,27 @@ class BleManager(
             _deviceConfigFlow.value = updated
             Log.i(TAG, "Auto-synced Device Setup from BLE: STA=$staSsid, AP=$apSsid, BLE=$bleName")
         }
+
+        if (text.contains("\"city\":") && (text.contains("\"lat\":") || text.contains("\"temp\":"))) {
+            val prefs = com.leshoraa.kore.core.common.ServiceLocator.providePreferencesManager(context)
+            val current = prefs.getCachedWeatherConfig()
+            val city = if (text.contains("\"city\":\"")) text.substringAfter("\"city\":\"").substringBefore("\"") else current.city
+            val lat = if (text.contains("\"lat\":")) text.substringAfter("\"lat\":").substringBefore(",").substringBefore("}").toDoubleOrNull() ?: current.latitude else current.latitude
+            val lon = if (text.contains("\"lon\":")) text.substringAfter("\"lon\":").substringBefore(",").substringBefore("}").toDoubleOrNull() ?: current.longitude else current.longitude
+            val en = if (text.contains("\"enabled\":")) text.substringAfter("\"enabled\":").substringBefore(",").substringBefore("}").toBooleanStrictOrNull() ?: current.isEnabled else current.isEnabled
+            val tz = if (text.contains("\"tz\":")) text.substringAfter("\"tz\":").substringBefore(",").substringBefore("}").toIntOrNull() ?: current.timezoneOffsetSec else current.timezoneOffsetSec
+
+            val updated = com.leshoraa.kore.domain.model.WeatherLocationConfig(
+                city = city,
+                latitude = lat,
+                longitude = lon,
+                isEnabled = en,
+                timezoneOffsetSec = tz
+            )
+            prefs.setCachedWeatherConfig(updated)
+            _weatherConfigFlow.value = updated
+            Log.i(TAG, "Auto-synced Weather Setup from BLE: City=$city, Lat=$lat, Lon=$lon, TZ=$tz")
+        }
     }
 
     suspend fun queryDeviceConfig(): Result<Unit> {
@@ -198,12 +246,42 @@ class BleManager(
     }
 
     fun connect(address: String, deviceName: String? = null) {
+        userRequestedDisconnect = false
+        autoReconnectJob?.cancel()
+        autoReconnectJob = null
+
+        // Save last connected address and device name for seamless auto-reconnect
+        val prefs = com.leshoraa.kore.core.common.ServiceLocator.providePreferencesManager(context)
+        prefs.setLastConnectedBleAddress(address)
+        if (deviceName != null) {
+            prefs.setLastConnectedBleName(deviceName)
+        }
+
+        connectInternal(address, deviceName)
+    }
+
+    fun reconnectLastDevice() {
+        val prefs = com.leshoraa.kore.core.common.ServiceLocator.providePreferencesManager(context)
+        val lastAddr = prefs.getLastConnectedBleAddress()
+        val lastName = prefs.getLastConnectedBleName()
+
+        if (!lastAddr.isNullOrBlank() && !userRequestedDisconnect && _connectionState.value == BluetoothProfile.STATE_DISCONNECTED) {
+            Log.i(TAG, "Attempting auto-reconnect to last device: $lastName ($lastAddr)")
+            connectInternal(lastAddr, lastName)
+        }
+    }
+
+    private fun connectInternal(address: String, deviceName: String?) {
         _connectionState.value = BluetoothProfile.STATE_CONNECTING
         mainHandler.post {
             try {
                 bluetoothGatt?.let {
-                    it.disconnect()
-                    it.close()
+                    try {
+                        it.disconnect()
+                        it.close()
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Error closing previous gatt: ${e.message}")
+                    }
                 }
                 bluetoothGatt = null
 
@@ -212,6 +290,7 @@ class BleManager(
                 val device = adapter?.getRemoteDevice(address)
                 if (device == null) {
                     _connectionState.value = BluetoothProfile.STATE_DISCONNECTED
+                    triggerAutoReconnect()
                     return@post
                 }
                 _connectedDeviceName.value = deviceName ?: device.name
@@ -224,11 +303,16 @@ class BleManager(
             } catch (e: Exception) {
                 Log.e(TAG, "Exception during connectGatt: ${e.message}", e)
                 _connectionState.value = BluetoothProfile.STATE_DISCONNECTED
+                triggerAutoReconnect()
             }
         }
     }
 
     fun disconnect() {
+        userRequestedDisconnect = true
+        autoReconnectJob?.cancel()
+        autoReconnectJob = null
+
         _connectionState.value = BluetoothProfile.STATE_DISCONNECTING
         mainHandler.post {
             try {
@@ -245,7 +329,7 @@ class BleManager(
     }
 
     private fun handleGattError(gatt: BluetoothGatt) {
-        Log.e(TAG, "GATT error detected. Closing handle to prevent status 133 leaks.")
+        Log.e(TAG, "GATT error / disconnection detected. Closing handle.")
         mainHandler.post {
             try {
                 gatt.disconnect()
@@ -258,6 +342,28 @@ class BleManager(
             }
             _connectionState.value = BluetoothProfile.STATE_DISCONNECTED
             _connectedDeviceName.value = null
+
+            if (!userRequestedDisconnect) {
+                triggerAutoReconnect()
+            }
+        }
+    }
+
+    private fun triggerAutoReconnect() {
+        if (userRequestedDisconnect) return
+        val prefs = com.leshoraa.kore.core.common.ServiceLocator.providePreferencesManager(context)
+        val lastAddr = prefs.getLastConnectedBleAddress() ?: return
+        val lastName = prefs.getLastConnectedBleName()
+
+        if (autoReconnectJob?.isActive == true) return
+
+        autoReconnectJob = scope.launch {
+            Log.i(TAG, "Scheduling auto-reconnect to $lastAddr in ${AUTO_RECONNECT_DELAY_MS}ms...")
+            delay(AUTO_RECONNECT_DELAY_MS)
+            if (!userRequestedDisconnect && _connectionState.value == BluetoothProfile.STATE_DISCONNECTED && isBluetoothEnabled.value) {
+                Log.i(TAG, "Auto-reconnect executing for $lastAddr")
+                connectInternal(lastAddr, lastName)
+            }
         }
     }
 
@@ -295,4 +401,3 @@ class BleManager(
         }
     }
 }
-

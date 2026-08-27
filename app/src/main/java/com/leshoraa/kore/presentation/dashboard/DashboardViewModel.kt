@@ -59,7 +59,7 @@ class DashboardViewModel(
     val testMessage = _testMessage.asStateFlow()
 
     init {
-        // Synchronize persisted KoRe brightness and expression on connection
+        // Synchronize persisted KoRe brightness, expression, RTC time, and weather on connection
         viewModelScope.launch {
             bleManager.connectionState.collect { state ->
                 if (state == BluetoothProfile.STATE_CONNECTED) {
@@ -69,6 +69,13 @@ class DashboardViewModel(
                     }
                     _selectedExpression.value?.let { expr ->
                         setExpressionUseCase(expr)
+                    }
+                    // Auto-sync hardware RTC clock with phone timestamp & timezone!
+                    bleRepository.syncTime()
+                    // Auto-fetch latest weather on phone and push to KoRe!
+                    val wConfig = preferencesManager.getCachedWeatherConfig()
+                    if (wConfig.isEnabled) {
+                        bleRepository.fetchAndPushWeatherFromPhone(wConfig.city, wConfig.latitude, wConfig.longitude)
                     }
                 }
             }
@@ -139,6 +146,13 @@ class DashboardViewModel(
                 Log.e("DashboardViewModel", "Failed to dispatch expression: ${error.message}", error)
             }
         }
+    }
+
+    private val _snackbarMessage = MutableStateFlow<String?>(null)
+    val snackbarMessage = _snackbarMessage.asStateFlow()
+
+    fun clearSnackbarMessage() {
+        _snackbarMessage.value = null
     }
 
     fun disconnect() = bleManager.disconnect()

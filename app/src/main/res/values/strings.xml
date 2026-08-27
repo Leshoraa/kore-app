@@ -140,6 +140,31 @@
     <string name="msg_config_error">Failed to send settings. Ensure KoRe is connected via BLE or Wi-Fi.</string>
     <string name="err_ap_pass_length">Hotspot password must be at least 8 characters or empty.</string>
 
+    <!-- Ambient Glances & Weather/Clock Controls -->
+    <string name="title_ambient_glances">Ambient Glances</string>
+    <string name="desc_ambient_glances">Preview Clock &amp; Weather directly on KoRe\'s OLED screen.</string>
+    <string name="btn_show_clock">Show Clock</string>
+    <string name="btn_show_weather">Show Weather</string>
+    <string name="msg_glance_triggered">Triggered OLED Glance</string>
+
+    <!-- Weather & Location Configuration -->
+    <string name="settings_section_weather">Ambient &amp; Weather</string>
+    <string name="weather_config_title">Weather &amp; Location</string>
+    <string name="weather_config_desc">Set forecast city, coordinates, and timezone for KoRe OLED.</string>
+    <string name="label_weather_city">City / Region Name</string>
+    <string name="placeholder_weather_city">e.g. Jakarta, Bandung, Surabaya</string>
+    <string name="label_weather_lat">Latitude</string>
+    <string name="placeholder_weather_lat">e.g. -6.2088</string>
+    <string name="label_weather_lon">Longitude</string>
+    <string name="placeholder_weather_lon">e.g. 106.8456</string>
+    <string name="label_weather_tz">Timezone Offset</string>
+    <string name="label_weather_enabled">Enable Spontaneous Weather Glance</string>
+    <string name="label_city_presets">City Presets:</string>
+    <string name="btn_use_gps">Use Phone GPS Location</string>
+    <string name="btn_sync_now">Sync</string>
+    <string name="btn_save_weather">Save &amp; Push to KoRe</string>
+    <string name="msg_weather_saved">Weather location saved and synced to KoRe!</string>
+
     <!-- General Status -->
     <string name="status_ble_connected">BLE Connected</string>
     <string name="status_ble_disconnected">BLE Disconnected</string>

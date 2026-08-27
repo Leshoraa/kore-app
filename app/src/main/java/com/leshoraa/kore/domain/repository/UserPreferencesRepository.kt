@@ -21,5 +21,11 @@ interface UserPreferencesRepository {
     fun setCameraHost(host: String)
     fun getCachedDeviceConfig(): com.leshoraa.kore.domain.model.DeviceNetworkConfig
     fun setCachedDeviceConfig(config: com.leshoraa.kore.domain.model.DeviceNetworkConfig)
+    fun getLastConnectedBleAddress(): String?
+    fun setLastConnectedBleAddress(address: String?)
+    fun getLastConnectedBleName(): String?
+    fun setLastConnectedBleName(name: String?)
+    fun getCachedWeatherConfig(): com.leshoraa.kore.domain.model.WeatherLocationConfig
+    fun setCachedWeatherConfig(config: com.leshoraa.kore.domain.model.WeatherLocationConfig)
 }
 

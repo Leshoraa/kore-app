@@ -28,7 +28,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
@@ -242,7 +241,7 @@ private fun CameraViewportCard(
         modifier = Modifier
             .fillMaxWidth()
             .aspectRatio(4f / 3f),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.outlinedCardColors(containerColor = Color.Black),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -506,7 +505,7 @@ private fun StreamControlPill(
     val colorScheme = MaterialTheme.colorScheme
     OutlinedCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.outlinedCardColors(containerColor = colorScheme.surfaceContainer),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
@@ -555,7 +554,7 @@ private fun StreamControlPill(
                     if (isStreamActive) {
                         FilledTonalButton(
                             onClick = onToggleStream,
-                            shape = RoundedCornerShape(10.dp),
+                            shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.filledTonalButtonColors(
                                 containerColor = colorScheme.errorContainer,
                                 contentColor = colorScheme.error
@@ -635,7 +634,7 @@ private fun MetricTile(
 ) {
     OutlinedCard(
         modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
     ) {
         Column(
@@ -683,7 +682,7 @@ private fun AffectiveDynamicsSection(telemetry: TelemetryData?) {
     val colorScheme = MaterialTheme.colorScheme
     OutlinedCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.outlinedCardColors(containerColor = colorScheme.surfaceContainer)
     ) {
         Column(
@@ -712,7 +711,7 @@ private fun AffectiveDynamicsSection(telemetry: TelemetryData?) {
                     Text(text = stringResource(R.string.vision_affective_valence), style = MaterialTheme.typography.bodySmall)
                     Text(
                         text = String.format(Locale.US, "%+.2f", valence),
-                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace)
+                        style = MaterialTheme.typography.bodySmall
                     )
                 }
                 LinearProgressIndicator(
@@ -736,7 +735,7 @@ private fun AffectiveDynamicsSection(telemetry: TelemetryData?) {
                     Text(text = stringResource(R.string.vision_affective_arousal), style = MaterialTheme.typography.bodySmall)
                     Text(
                         text = String.format(Locale.US, "%.2f", arousal),
-                        style = MaterialTheme.typography.bodySmall.copy(fontFamily = FontFamily.Monospace)
+                        style = MaterialTheme.typography.bodySmall
                     )
                 }
                 LinearProgressIndicator(
@@ -760,7 +759,7 @@ private fun AffectiveDynamicsSection(telemetry: TelemetryData?) {
 private fun HardwareDiagnosticsSection(telemetry: TelemetryData?) {
     OutlinedCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
     ) {
         Column(
@@ -869,7 +868,7 @@ private fun IpConfigDialog(
                     onClick = onAutoDiscover,
                     enabled = !isDiscovering,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp)
+                    shape = RoundedCornerShape(12.dp)
                 ) {
                     if (isDiscovering) {
                         CircularProgressIndicator(
@@ -890,7 +889,7 @@ private fun IpConfigDialog(
         confirmButton = {
             Button(
                 onClick = { onSave(ipText) },
-                shape = RoundedCornerShape(10.dp)
+                shape = RoundedCornerShape(12.dp)
             ) {
                 Text(stringResource(R.string.dialog_btn_save))
             }
@@ -995,7 +994,7 @@ private fun SensorSliderItem(
             Text(text = title, style = MaterialTheme.typography.bodyMedium)
             Text(
                 text = String.format(Locale.US, "%+d", value.toInt()),
-                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace)
+                style = MaterialTheme.typography.bodyMedium
             )
         }
         Slider(

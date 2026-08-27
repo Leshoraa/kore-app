@@ -4,10 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.leshoraa.kore.domain.model.NotificationEvent
 import com.leshoraa.kore.domain.repository.NotificationRepository
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * ViewModel for viewing historical notification logs.
@@ -25,7 +27,9 @@ class LogsViewModel(
 
     fun clearLogs() {
         viewModelScope.launch {
-            notificationRepository.clearLogs()
+            withContext(NonCancellable) {
+                notificationRepository.clearLogs()
+            }
         }
     }
 }

@@ -20,7 +20,8 @@ class BluetoothStateReceiver : BroadcastReceiver() {
                     ServiceLocator.provideBleManager(context).disconnect()
                 }
                 BluetoothAdapter.STATE_ON -> {
-                    Log.i("BluetoothReceiver", "Bluetooth turned ON. Ready for connection.")
+                    Log.i("BluetoothReceiver", "Bluetooth turned ON. Triggering auto-reconnect to KoRe...")
+                    ServiceLocator.provideBleManager(context).reconnectLastDevice()
                 }
             }
         }

@@ -23,6 +23,8 @@ object ServiceLocator {
     private var database: AppDatabase? = null
     private var preferencesManager: PreferencesManager? = null
     private var cameraVisionRepository: CameraVisionRepository? = null
+    private var ruleRepository: RuleRepository? = null
+    private var notificationRepository: NotificationRepository? = null
 
     private fun provideDatabase(context: Context): AppDatabase {
         return database ?: synchronized(this) {
@@ -65,11 +67,15 @@ object ServiceLocator {
     }
 
     fun provideRuleRepository(context: Context): RuleRepository {
-        return RuleRepositoryImpl(provideDatabase(context).ruleDao())
+        return ruleRepository ?: synchronized(this) {
+            ruleRepository ?: RuleRepositoryImpl(provideDatabase(context).ruleDao()).also { ruleRepository = it }
+        }
     }
 
     fun provideNotificationRepository(context: Context): NotificationRepository {
-        return NotificationRepositoryImpl(provideDatabase(context).notificationLogDao())
+        return notificationRepository ?: synchronized(this) {
+            notificationRepository ?: NotificationRepositoryImpl(provideDatabase(context).notificationLogDao()).also { notificationRepository = it }
+        }
     }
 
     fun provideProcessNotificationUseCase(context: Context): ProcessNotificationUseCase {
@@ -135,6 +141,38 @@ object ServiceLocator {
             provideBleRepository(context),
             provideCameraVisionRepository(context),
             providePreferencesManager(context)
+        )
+    }
+
+    fun provideShowClockUseCase(context: Context): ShowClockUseCase {
+        return ShowClockUseCase(provideBleRepository(context))
+    }
+
+    fun provideShowWeatherUseCase(context: Context): ShowWeatherUseCase {
+        return ShowWeatherUseCase(provideBleRepository(context))
+    }
+
+    fun provideGetWeatherConfigUseCase(context: Context): GetWeatherConfigUseCase {
+        return GetWeatherConfigUseCase(providePreferencesManager(context))
+    }
+
+    fun provideSaveWeatherConfigUseCase(context: Context): SaveWeatherConfigUseCase {
+        return SaveWeatherConfigUseCase(
+            providePreferencesManager(context),
+            provideBleRepository(context)
+        )
+    }
+
+    fun provideGetPhoneLocationUseCase(context: Context): GetPhoneLocationUseCase {
+        return GetPhoneLocationUseCase(
+            com.leshoraa.kore.core.location.PhoneLocationProvider(context.applicationContext)
+        )
+    }
+
+    fun provideSyncPhoneWeatherUseCase(context: Context): SyncPhoneWeatherUseCase {
+        return SyncPhoneWeatherUseCase(
+            providePreferencesManager(context),
+            provideBleRepository(context)
         )
     }
 }

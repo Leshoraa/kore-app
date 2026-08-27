@@ -4,7 +4,9 @@ import com.leshoraa.kore.core.database.NotificationLogDao
 import com.leshoraa.kore.core.database.NotificationLogEntity
 import com.leshoraa.kore.domain.model.NotificationEvent
 import com.leshoraa.kore.domain.repository.NotificationRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 
 /**
@@ -14,7 +16,7 @@ class NotificationRepositoryImpl(private val logDao: NotificationLogDao) : Notif
     
     override val recentEvents: Flow<List<NotificationEvent>> = logDao.getRecentLogs().map { entities ->
         entities.map { it.toDomain() }
-    }
+    }.flowOn(Dispatchers.Default)
 
     override suspend fun logEvent(event: NotificationEvent) {
         logDao.insertLog(event.toEntity())

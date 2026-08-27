@@ -129,6 +129,12 @@ fun KoReNavGraph(
                 com.leshoraa.kore.presentation.settings.SettingsViewModel(
                     ServiceLocator.provideGetDeviceConfigUseCase(context),
                     ServiceLocator.provideSaveDeviceConfigUseCase(context),
+                    ServiceLocator.provideGetWeatherConfigUseCase(context),
+                    ServiceLocator.provideSaveWeatherConfigUseCase(context),
+                    ServiceLocator.provideGetPhoneLocationUseCase(context),
+                    ServiceLocator.provideSyncPhoneWeatherUseCase(context),
+                    ServiceLocator.provideShowClockUseCase(context),
+                    ServiceLocator.provideShowWeatherUseCase(context),
                     ServiceLocator.provideBleRepository(context)
                 )
             }

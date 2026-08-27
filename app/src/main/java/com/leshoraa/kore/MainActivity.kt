@@ -35,7 +35,12 @@ class MainActivity : ComponentActivity() {
 
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { }
+    ) { permissions ->
+        val allGranted = permissions.entries.all { it.value }
+        if (allGranted) {
+            startKoReForegroundService()
+        }
+    }
 
     private val enableBluetoothLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -64,6 +69,8 @@ class MainActivity : ComponentActivity() {
                 LaunchedEffect(Unit) {
                     if (!PermissionManager.hasPermissions(this@MainActivity)) {
                         requestPermissionLauncher.launch(PermissionManager.requiredPermissions.toTypedArray())
+                    } else {
+                        startKoReForegroundService()
                     }
                 }
 
@@ -104,6 +111,19 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+    }
+
+    private fun startKoReForegroundService() {
+        val serviceIntent = Intent(this, com.leshoraa.kore.service.foreground.KoReForegroundService::class.java)
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent)
+            } else {
+                startService(serviceIntent)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("MainActivity", "Failed to start KoReForegroundService: ${e.message}")
         }
     }
 }

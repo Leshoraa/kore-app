@@ -145,6 +145,93 @@ class BleDispatcher(private val bleManager: BleManager) {
         }
     }
 
+    /**
+     * Triggers the Clock display glance on KoRe's OLED screen.
+     */
+    suspend fun dispatchShowClock(): Result<Unit> = sendMutex.withLock {
+        return@withLock runCatching {
+            val payload = """{"cmd":"show_clock"}"""
+            val data = payload.toByteArray(Charsets.UTF_8)
+            Log.d(TAG, "Dispatching show_clock command")
+            bleManager.writeData(data).getOrThrow()
+        }
+    }
+
+    /**
+     * Triggers the Open-Meteo Weather glance on KoRe's OLED screen.
+     */
+    suspend fun dispatchShowWeather(): Result<Unit> = sendMutex.withLock {
+        return@withLock runCatching {
+            val payload = """{"cmd":"show_weather"}"""
+            val data = payload.toByteArray(Charsets.UTF_8)
+            Log.d(TAG, "Dispatching show_weather command")
+            bleManager.writeData(data).getOrThrow()
+        }
+    }
+
+    /**
+     * Sends Weather location and timezone configuration to KoRe.
+     */
+    suspend fun dispatchWeatherConfig(config: com.leshoraa.kore.domain.model.WeatherLocationConfig): Result<Unit> = sendMutex.withLock {
+        return@withLock runCatching {
+            val city = escapeJson(config.city)
+            val lat = config.latitude
+            val lon = config.longitude
+            val en = config.isEnabled
+            val tz = config.timezoneOffsetSec
+
+            val payload = """{"cmd":"save_weather","city":"$city","lat":$lat,"lon":$lon,"enabled":$en,"tz":$tz}"""
+            val data = payload.toByteArray(Charsets.UTF_8)
+            val mtu = bleManager.negotiatedMtu.value
+            val chunks = fragment(data, mtu)
+
+            Log.d(TAG, "Dispatching weather config in ${chunks.size} chunks (city=$city, lat=$lat, lon=$lon, tz=$tz)")
+
+            chunks.forEachIndexed { index, chunk ->
+                bleManager.writeData(chunk).onFailure { error ->
+                    Log.e(TAG, "Failed to send weather config chunk $index", error)
+                    throw error
+                }
+            }
+        }
+    }
+
+    /**
+     * Synchronizes phone's accurate epoch time and timezone offset to KoRe hardware RTC.
+     */
+    suspend fun dispatchSyncTime(epochSec: Long = System.currentTimeMillis() / 1000L, tzOffsetSec: Int = java.util.TimeZone.getDefault().getOffset(System.currentTimeMillis()) / 1000): Result<Unit> = sendMutex.withLock {
+        return@withLock runCatching {
+            val payload = """{"cmd":"sync_time","epoch":$epochSec,"tz":$tzOffsetSec}"""
+            val data = payload.toByteArray(Charsets.UTF_8)
+            Log.d(TAG, "Dispatching time sync: epoch=$epochSec, tz=$tzOffsetSec")
+            bleManager.writeData(data).getOrThrow()
+        }
+    }
+
+    /**
+     * Pushes live weather readings directly from phone to KoRe over BLE
+     * (Allows KoRe to display accurate weather even with no Wi-Fi on the robot).
+     */
+    suspend fun dispatchPushWeatherData(city: String, temp: Float, hum: Int, code: Int, cond: String): Result<Unit> = sendMutex.withLock {
+        return@withLock runCatching {
+            val escapedCity = escapeJson(city)
+            val escapedCond = escapeJson(cond)
+            val payload = """{"cmd":"push_weather","city":"$escapedCity","temp":$temp,"hum":$hum,"code":$code,"cond":"$escapedCond"}"""
+            val data = payload.toByteArray(Charsets.UTF_8)
+            val mtu = bleManager.negotiatedMtu.value
+            val chunks = fragment(data, mtu)
+
+            Log.d(TAG, "Pushing phone weather data to BLE ($city, $temp°C, $hum%, $cond)")
+
+            chunks.forEachIndexed { index, chunk ->
+                bleManager.writeData(chunk).onFailure { error ->
+                    Log.e(TAG, "Failed to send push_weather chunk $index", error)
+                    throw error
+                }
+            }
+        }
+    }
+
 
 
     /**
