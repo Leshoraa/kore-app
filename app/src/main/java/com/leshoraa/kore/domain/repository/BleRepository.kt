@@ -13,6 +13,7 @@ interface BleRepository {
     val isBluetoothEnabled: StateFlow<Boolean>
     val deviceConfigFlow: StateFlow<com.leshoraa.kore.domain.model.DeviceNetworkConfig?>
     val weatherConfigFlow: StateFlow<com.leshoraa.kore.domain.model.WeatherLocationConfig?>
+    val telemetryFlow: StateFlow<com.leshoraa.kore.domain.model.TelemetryData?>
     fun connect(address: String, deviceName: String? = null)
     fun disconnect()
     suspend fun sendNotification(event: NotificationEvent): Result<Unit>
@@ -21,6 +22,9 @@ interface BleRepository {
     suspend fun sendExpression(expression: Expression?): Result<Unit>
     suspend fun sendDeviceConfig(config: com.leshoraa.kore.domain.model.DeviceNetworkConfig): Result<Unit>
     suspend fun queryDeviceConfig(): Result<Unit>
+    suspend fun queryTelemetry(): Result<Unit>
+    suspend fun startTelemetryStreaming(intervalMs: Long = 500L): Result<Unit>
+    suspend fun stopTelemetryStreaming(): Result<Unit>
     suspend fun showClock(): Result<Unit>
     suspend fun showWeather(): Result<Unit>
     suspend fun sendWeatherConfig(config: com.leshoraa.kore.domain.model.WeatherLocationConfig): Result<Unit>

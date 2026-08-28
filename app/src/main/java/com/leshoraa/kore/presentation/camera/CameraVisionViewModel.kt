@@ -10,6 +10,7 @@ import com.leshoraa.kore.data.remote.MjpegStreamDecoder
 import com.leshoraa.kore.domain.model.CameraSensorParams
 import com.leshoraa.kore.domain.model.StreamConnectionState
 import com.leshoraa.kore.domain.model.TelemetryData
+import com.leshoraa.kore.domain.repository.BleRepository
 import com.leshoraa.kore.domain.repository.CameraVisionRepository
 import com.leshoraa.kore.domain.repository.UserPreferencesRepository
 import com.leshoraa.kore.domain.usecase.GetCameraStreamUseCase
@@ -31,7 +32,8 @@ class CameraVisionViewModel(
     private val getTelemetryStreamUseCase: GetTelemetryStreamUseCase,
     private val updateCameraSensorUseCase: UpdateCameraSensorUseCase,
     private val userPreferencesRepository: UserPreferencesRepository,
-    private val cameraVisionRepository: CameraVisionRepository
+    private val cameraVisionRepository: CameraVisionRepository,
+    private val bleRepository: BleRepository? = null
 ) : ViewModel() {
 
     companion object {
@@ -67,6 +69,52 @@ class CameraVisionViewModel(
         // If stored host is empty, set default KoRe IP
         if (hostIp.value.isBlank()) {
             userPreferencesRepository.setCameraHost("192.168.18.16")
+        }
+
+        // Seamlessly bind BLE real-time telemetry stream (Mood, Diagnostics, Memory, Expression)
+        bleRepository?.let { bleRepo ->
+            viewModelScope.launch {
+                bleRepo.telemetryFlow.collect { bleData ->
+                    if (bleData != null) {
+                        _telemetry.value = bleData
+                    }
+                }
+            }
+            viewModelScope.launch {
+                bleRepo.connectionState.collect { state ->
+                    if (state == android.bluetooth.BluetoothProfile.STATE_CONNECTED) {
+                        bleRepo.startTelemetryStreaming(500L)
+                        bleRepo.queryTelemetry()
+                    }
+                }
+            }
+            if (bleRepo.connectionState.value == android.bluetooth.BluetoothProfile.STATE_CONNECTED) {
+                viewModelScope.launch {
+                    bleRepo.startTelemetryStreaming(500L)
+                    bleRepo.queryTelemetry()
+                }
+            }
+        }
+
+        // Start continuous background HTTP telemetry polling (independent of video stream)
+        startContinuousTelemetryPolling()
+    }
+
+    private fun startContinuousTelemetryPolling() {
+        telemetryJob?.cancel()
+        telemetryJob = viewModelScope.launch {
+            userPreferencesRepository.cameraHost.collect { host ->
+                if (host.isNotBlank()) {
+                    val sanitized = MjpegStreamDecoder.sanitizeHost(host)
+                    getTelemetryStreamUseCase(sanitized, port = 80, intervalMs = 250L)
+                        .catch { e ->
+                            Log.d(TAG, "HTTP background telemetry polling drop/offline: ${e.message}")
+                        }
+                        .collect { data: TelemetryData ->
+                            _telemetry.value = data
+                        }
+                }
+            }
         }
     }
 
@@ -112,7 +160,7 @@ class CameraVisionViewModel(
     }
 
     /**
-     * Starts concurrent MJPEG video stream and JSON telemetry polling.
+     * Starts MJPEG video stream.
      */
     fun startStream() {
         if (_isStreamActive.value) return
@@ -121,7 +169,7 @@ class CameraVisionViewModel(
         _lastErrorMessage.value = null
         val host = MjpegStreamDecoder.sanitizeHost(hostIp.value)
 
-        Log.d(TAG, "Starting stream to sanitized host: $host")
+        Log.d(TAG, "Starting video stream to sanitized host: $host")
 
         streamJob?.cancel()
         streamJob = viewModelScope.launch {
@@ -137,28 +185,16 @@ class CameraVisionViewModel(
                     }
                 }
         }
-
-        telemetryJob?.cancel()
-        telemetryJob = viewModelScope.launch {
-            getTelemetryStreamUseCase(host, port = 80, intervalMs = 75L)
-                .catch { e ->
-                    Log.w(TAG, "Telemetry stream failed: ${e.message}")
-                }
-                .collect { data: TelemetryData ->
-                    _telemetry.value = data
-                }
-        }
     }
 
     /**
-     * Halts video streaming and telemetry polling.
+     * Halts video streaming (saving camera sensor power), while keeping telemetry live.
      */
     fun stopStream() {
         _isStreamActive.value = false
         streamJob?.cancel()
         streamJob = null
-        telemetryJob?.cancel()
-        telemetryJob = null
+        _currentFrame.value = null
     }
 
     /**

@@ -42,6 +42,9 @@ class DashboardViewModel(
     val logs = notificationRepository.recentEvents
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val telemetry = bleRepository.telemetryFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
     private val _brightness = MutableStateFlow(preferencesManager.getBrightness())
     val brightness = _brightness.asStateFlow()
 
@@ -58,8 +61,31 @@ class DashboardViewModel(
     private val _testMessage = MutableStateFlow("")
     val testMessage = _testMessage.asStateFlow()
 
+    private val _isSystemAccessTipDismissed = MutableStateFlow(preferencesManager.isSystemAccessTipDismissed())
+    val isSystemAccessTipDismissed = _isSystemAccessTipDismissed.asStateFlow()
+
+    private val _isBluetoothTipDismissed = MutableStateFlow(false)
+    val isBluetoothTipDismissed = _isBluetoothTipDismissed.asStateFlow()
+
+    private val _isNotificationAccessGranted = MutableStateFlow(true)
+    private val _isBatteryOptimizationIgnored = MutableStateFlow(true)
+
+    fun updatePermissionStatus(notificationAccess: Boolean, batteryOptimization: Boolean) {
+        _isNotificationAccessGranted.value = notificationAccess
+        _isBatteryOptimizationIgnored.value = batteryOptimization
+    }
+
+    fun dismissSystemAccessTip() {
+        _isSystemAccessTipDismissed.value = true
+        preferencesManager.setSystemAccessTipDismissed(true)
+    }
+
+    fun dismissBluetoothTip() {
+        _isBluetoothTipDismissed.value = true
+    }
+
     init {
-        // Synchronize persisted KoRe brightness, expression, RTC time, and weather on connection
+        // Synchronize persisted KoRe brightness, expression, RTC time, weather, and start telemetry stream on connection
         viewModelScope.launch {
             bleManager.connectionState.collect { state ->
                 if (state == BluetoothProfile.STATE_CONNECTED) {
@@ -77,6 +103,9 @@ class DashboardViewModel(
                     if (wConfig.isEnabled) {
                         bleRepository.fetchAndPushWeatherFromPhone(wConfig.city, wConfig.latitude, wConfig.longitude)
                     }
+                    // Start live real-time telemetry streaming over BLE!
+                    bleRepository.startTelemetryStreaming(500L)
+                    bleRepository.queryTelemetry()
                 }
             }
         }

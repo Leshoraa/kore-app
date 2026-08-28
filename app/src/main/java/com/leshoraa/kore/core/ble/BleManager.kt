@@ -17,6 +17,9 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
+import com.leshoraa.kore.domain.model.TelemetryData
+import com.leshoraa.kore.domain.model.TargetCandidate
+import org.json.JSONObject
 import java.util.*
 
 /**
@@ -56,6 +59,12 @@ class BleManager(
 
     private val _weatherConfigFlow = MutableStateFlow<com.leshoraa.kore.domain.model.WeatherLocationConfig?>(null)
     val weatherConfigFlow: StateFlow<com.leshoraa.kore.domain.model.WeatherLocationConfig?> = _weatherConfigFlow.asStateFlow()
+
+    private val _telemetryFlow = MutableStateFlow<TelemetryData?>(null)
+    val telemetryFlow: StateFlow<TelemetryData?> = _telemetryFlow.asStateFlow()
+
+    private val rxBuffer = StringBuilder()
+    private var lastRxTimeMs = 0L
 
     private var userRequestedDisconnect = false
     private var autoReconnectJob: Job? = null
@@ -118,6 +127,8 @@ class BleManager(
                 }
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 _connectedDeviceName.value = null
+                _telemetryFlow.value = null
+                synchronized(rxBuffer) { rxBuffer.clear() }
                 handleGattError(gatt)
             }
         }
@@ -129,10 +140,12 @@ class BleManager(
             } else {
                 Log.w(TAG, "MTU negotiation status $status, keeping ${_negotiatedMtu.value}")
             }
-            // Request current config from KoRe once MTU is set
+            // Request current config and start live telemetry streaming from KoRe
             scope.launch {
                 delay(100)
                 writeData("""{"cmd":"get_config"}""".toByteArray(Charsets.UTF_8))
+                delay(100)
+                startTelemetryStreaming(500L)
             }
         }
 
@@ -188,57 +201,185 @@ class BleManager(
     }
 
     private fun handleIncomingBlePacket(bytes: ByteArray) {
-        val text = String(bytes)
-        Log.d(TAG, "BLE Notification received: $text")
-        if (text.contains("\"ip\":")) {
-            val ip = text.substringAfter("\"ip\":\"").substringBefore("\"")
-            if (ip.isNotBlank() && ip.contains(".")) {
-                Log.i(TAG, "Auto-configured Camera Host from BLE: $ip")
-                com.leshoraa.kore.core.common.ServiceLocator.providePreferencesManager(context).setCameraHost(ip)
+        val now = System.currentTimeMillis()
+        synchronized(rxBuffer) {
+            if (rxBuffer.isNotEmpty() && (now - lastRxTimeMs > 2500L)) {
+                rxBuffer.clear()
+            }
+            lastRxTimeMs = now
+
+            val chunk = String(bytes, Charsets.UTF_8)
+            rxBuffer.append(chunk)
+
+            // Robust multi-packet JSON assembler with bracket depth tracking
+            while (true) {
+                val startBrace = rxBuffer.indexOf('{')
+                if (startBrace < 0) {
+                    if (rxBuffer.length > 500) rxBuffer.clear()
+                    break
+                }
+                if (startBrace > 0) {
+                    rxBuffer.delete(0, startBrace)
+                }
+
+                var depth = 0
+                var endBrace = -1
+                var inQuotes = false
+                var escape = false
+
+                for (i in 0 until rxBuffer.length) {
+                    val c = rxBuffer[i]
+                    if (escape) {
+                        escape = false
+                        continue
+                    }
+                    if (c == '\\') {
+                        escape = true
+                        continue
+                    }
+                    if (c == '"') {
+                        inQuotes = !inQuotes
+                        continue
+                    }
+                    if (!inQuotes) {
+                        if (c == '{') depth++
+                        else if (c == '}') {
+                            depth--
+                            if (depth == 0) {
+                                endBrace = i
+                                break
+                            }
+                        }
+                    }
+                }
+
+                if (endBrace < 0) {
+                    // Incomplete JSON chunk, wait for next onCharacteristicChanged notification
+                    break
+                }
+
+                val singleJson = rxBuffer.substring(0, endBrace + 1)
+                rxBuffer.delete(0, endBrace + 1)
+
+                processSingleJsonMessage(singleJson)
+            }
+        }
+    }
+
+    private fun processSingleJsonMessage(jsonStr: String) {
+        try {
+            val json = JSONObject(jsonStr)
+
+            // 1. Process Telemetry payload (Mood, System Diagnostics, Memory, Expression, Kalman Vision)
+            if (json.optString("type") == "telemetry" || json.has("valence") || json.has("heap_free") || json.has("expr_name")) {
+                val telemetryData = parseTelemetryJson(json)
+                _telemetryFlow.value = telemetryData
+                Log.d(TAG, "BLE Telemetry Updated: expr=${telemetryData.expressionName}, valence=${telemetryData.valence}, arousal=${telemetryData.arousal}, heap=${telemetryData.heapFree}B")
+            }
+
+            // 2. Process Wi-Fi Camera IP
+            if (json.has("ip")) {
+                val ip = json.optString("ip")
+                if (ip.isNotBlank() && ip.contains(".")) {
+                    Log.i(TAG, "Auto-configured Camera Host from BLE: $ip")
+                    com.leshoraa.kore.core.common.ServiceLocator.providePreferencesManager(context).setCameraHost(ip)
+                }
+            }
+
+            // 3. Process Device Config
+            if (json.has("sta_ssid") || json.has("ap_ssid") || json.has("ble_name")) {
+                val prefs = com.leshoraa.kore.core.common.ServiceLocator.providePreferencesManager(context)
+                val current = prefs.getCachedDeviceConfig()
+                val updated = com.leshoraa.kore.domain.model.DeviceNetworkConfig(
+                    staSsid = json.optString("sta_ssid", current.staSsid),
+                    staPass = json.optString("sta_pass", current.staPass),
+                    apSsid = json.optString("ap_ssid", current.apSsid),
+                    apPass = json.optString("ap_pass", current.apPass),
+                    bleName = json.optString("ble_name", current.bleName)
+                )
+                prefs.setCachedDeviceConfig(updated)
+                _deviceConfigFlow.value = updated
+                Log.i(TAG, "Auto-synced Device Setup from BLE: STA=${updated.staSsid}, AP=${updated.apSsid}, BLE=${updated.bleName}")
+            }
+
+            // 4. Process Weather Config
+            if (json.has("city") && (json.has("lat") || json.has("temp"))) {
+                val prefs = com.leshoraa.kore.core.common.ServiceLocator.providePreferencesManager(context)
+                val current = prefs.getCachedWeatherConfig()
+                val updated = com.leshoraa.kore.domain.model.WeatherLocationConfig(
+                    city = json.optString("city", current.city),
+                    latitude = json.optDouble("lat", current.latitude),
+                    longitude = json.optDouble("lon", current.longitude),
+                    isEnabled = json.optBoolean("enabled", current.isEnabled),
+                    timezoneOffsetSec = json.optInt("tz", current.timezoneOffsetSec)
+                )
+                prefs.setCachedWeatherConfig(updated)
+                _weatherConfigFlow.value = updated
+                Log.i(TAG, "Auto-synced Weather Setup from BLE: City=${updated.city}, Lat=${updated.latitude}, Lon=${updated.longitude}")
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Error parsing BLE JSON message: ${e.message}")
+        }
+    }
+
+    private fun parseTelemetryJson(json: JSONObject): TelemetryData {
+        val numCands = json.optInt("num_cands", 0)
+        val candidatesList = mutableListOf<TargetCandidate>()
+
+        for (i in 0 until 3) {
+            val cx = json.optDouble("c${i}_cx", 0.0).toFloat()
+            val cy = json.optDouble("c${i}_cy", 0.0).toFloat()
+            val w = json.optDouble("c${i}_w", 0.0).toFloat()
+            val h = json.optDouble("c${i}_h", 0.0).toFloat()
+            val p = json.optDouble("c${i}_p", 0.0).toFloat()
+
+            if (cx > 0f || cy > 0f) {
+                candidatesList.add(TargetCandidate(i, cx, cy, w, h, p))
             }
         }
 
-        if (text.contains("\"sta_ssid\":") || text.contains("\"ap_ssid\":") || text.contains("\"ble_name\":")) {
-            val prefs = com.leshoraa.kore.core.common.ServiceLocator.providePreferencesManager(context)
-            val current = prefs.getCachedDeviceConfig()
-            val staSsid = if (text.contains("\"sta_ssid\":\"")) text.substringAfter("\"sta_ssid\":\"").substringBefore("\"") else current.staSsid
-            val staPass = if (text.contains("\"sta_pass\":\"")) text.substringAfter("\"sta_pass\":\"").substringBefore("\"") else current.staPass
-            val apSsid = if (text.contains("\"ap_ssid\":\"")) text.substringAfter("\"ap_ssid\":\"").substringBefore("\"").ifBlank { current.apSsid } else current.apSsid
-            val apPass = if (text.contains("\"ap_pass\":\"")) text.substringAfter("\"ap_pass\":\"").substringBefore("\"") else current.apPass
-            val bleName = if (text.contains("\"ble_name\":\"")) text.substringAfter("\"ble_name\":\"").substringBefore("\"").ifBlank { current.bleName } else current.bleName
+        return TelemetryData(
+            detected = json.optBoolean("detected", false),
+            cx = json.optDouble("cx", json.optDouble("c0_cx", 0.0)).toFloat(),
+            cy = json.optDouble("cy", json.optDouble("c0_cy", 0.0)).toFloat(),
+            w = json.optDouble("w", json.optDouble("c0_w", 0.0)).toFloat(),
+            h = json.optDouble("h", json.optDouble("c0_h", 0.0)).toFloat(),
+            errX = json.optDouble("err_x", 0.0).toFloat(),
+            errY = json.optDouble("err_y", 0.0).toFloat(),
+            conf = json.optDouble("conf", 0.0).toFloat(),
+            fpsAi = json.optDouble("fps_ai", 0.0).toFloat(),
+            humanLikelihood = json.optDouble("human_likelihood", 0.0).toFloat(),
+            prox = json.optDouble("prox", 0.0).toFloat(),
+            fw = json.optInt("fw", 640),
+            fh = json.optInt("fh", 480),
+            vx = json.optDouble("vx", 0.0).toFloat(),
+            vy = json.optDouble("vy", 0.0).toFloat(),
+            numCands = numCands,
+            inspIdx = json.optInt("insp_idx", 0),
+            candidates = candidatesList,
+            expression = json.optInt("expr", 0),
+            expressionName = json.optString("expr_name", "IDLE"),
+            isManual = json.optBoolean("is_manual", false),
+            valence = json.optDouble("valence", 0.0).toFloat(),
+            arousal = json.optDouble("arousal", 0.0).toFloat(),
+            heapFree = json.optLong("heap_free", 0L),
+            psramFree = json.optLong("psram_free", 0L),
+            uptimeSeconds = json.optLong("uptime_s", 0L),
+            cpuMhz = json.optInt("cpu_mhz", 240)
+        )
+    }
 
-            val updated = com.leshoraa.kore.domain.model.DeviceNetworkConfig(
-                staSsid = staSsid,
-                staPass = staPass,
-                apSsid = apSsid,
-                apPass = apPass,
-                bleName = bleName
-            )
-            prefs.setCachedDeviceConfig(updated)
-            _deviceConfigFlow.value = updated
-            Log.i(TAG, "Auto-synced Device Setup from BLE: STA=$staSsid, AP=$apSsid, BLE=$bleName")
-        }
+    suspend fun queryTelemetry(): Result<Unit> {
+        return writeData("""{"cmd":"get_telemetry"}""".toByteArray(Charsets.UTF_8))
+    }
 
-        if (text.contains("\"city\":") && (text.contains("\"lat\":") || text.contains("\"temp\":"))) {
-            val prefs = com.leshoraa.kore.core.common.ServiceLocator.providePreferencesManager(context)
-            val current = prefs.getCachedWeatherConfig()
-            val city = if (text.contains("\"city\":\"")) text.substringAfter("\"city\":\"").substringBefore("\"") else current.city
-            val lat = if (text.contains("\"lat\":")) text.substringAfter("\"lat\":").substringBefore(",").substringBefore("}").toDoubleOrNull() ?: current.latitude else current.latitude
-            val lon = if (text.contains("\"lon\":")) text.substringAfter("\"lon\":").substringBefore(",").substringBefore("}").toDoubleOrNull() ?: current.longitude else current.longitude
-            val en = if (text.contains("\"enabled\":")) text.substringAfter("\"enabled\":").substringBefore(",").substringBefore("}").toBooleanStrictOrNull() ?: current.isEnabled else current.isEnabled
-            val tz = if (text.contains("\"tz\":")) text.substringAfter("\"tz\":").substringBefore(",").substringBefore("}").toIntOrNull() ?: current.timezoneOffsetSec else current.timezoneOffsetSec
+    suspend fun startTelemetryStreaming(intervalMs: Long = 500L): Result<Unit> {
+        val interval = intervalMs.coerceAtLeast(100L)
+        return writeData("""{"cmd":"stream_telemetry","enable":true,"interval":$interval}""".toByteArray(Charsets.UTF_8))
+    }
 
-            val updated = com.leshoraa.kore.domain.model.WeatherLocationConfig(
-                city = city,
-                latitude = lat,
-                longitude = lon,
-                isEnabled = en,
-                timezoneOffsetSec = tz
-            )
-            prefs.setCachedWeatherConfig(updated)
-            _weatherConfigFlow.value = updated
-            Log.i(TAG, "Auto-synced Weather Setup from BLE: City=$city, Lat=$lat, Lon=$lon, TZ=$tz")
-        }
+    suspend fun stopTelemetryStreaming(): Result<Unit> {
+        return writeData("""{"cmd":"stream_telemetry","enable":false}""".toByteArray(Charsets.UTF_8))
     }
 
     suspend fun queryDeviceConfig(): Result<Unit> {

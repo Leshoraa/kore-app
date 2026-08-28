@@ -36,6 +36,8 @@ import com.leshoraa.kore.R
 import com.leshoraa.kore.domain.model.CameraSensorParams
 import com.leshoraa.kore.domain.model.StreamConnectionState
 import com.leshoraa.kore.domain.model.TelemetryData
+import com.leshoraa.kore.presentation.components.KoReInlineLoading
+import com.leshoraa.kore.presentation.components.KoReLoadingScreen
 import java.util.Locale
 
 
@@ -73,7 +75,9 @@ fun CameraVisionScreen(
                 title = {
                     Text(
                         text = stringResource(R.string.vision_title),
-                        style = MaterialTheme.typography.titleMedium
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
                     )
                 },
                 actions = {
@@ -153,10 +157,8 @@ fun CameraVisionScreen(
                                 shape = shapes.medium
                             ) {
                                 if (isDiscovering) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(16.dp),
-                                        color = colorScheme.onError,
-                                        strokeWidth = 2.dp
+                                    KoReInlineLoading(
+                                        modifier = Modifier.size(16.dp)
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(stringResource(R.string.vision_status_discovering))
@@ -197,9 +199,9 @@ fun CameraVisionScreen(
         }
     }
 
-    // IP Configuration Dialog
+    // IP Configuration Bottom Sheet
     if (showIpDialog) {
-        IpConfigDialog(
+        IpConfigBottomSheet(
             currentIp = hostIp,
             isDiscovering = isDiscovering,
             onDismiss = { showIpDialog = false },
@@ -507,7 +509,8 @@ private fun StreamControlPill(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.outlinedCardColors(containerColor = colorScheme.surfaceContainer),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        border = androidx.compose.foundation.BorderStroke(1.dp, colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier
@@ -533,7 +536,7 @@ private fun StreamControlPill(
                         color = when (connectionState) {
                             StreamConnectionState.STREAMING -> colorScheme.primary
                             StreamConnectionState.ERROR -> colorScheme.error
-                            else -> colorScheme.onSurface
+                            else -> colorScheme.primary
                         }
                     )
                     Text(
@@ -579,9 +582,10 @@ private fun VisionMetricsSection(telemetry: TelemetryData?) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(
             text = "Vision Metrics",
-            style = MaterialTheme.typography.titleSmall,
+            style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.primary,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 0.5.sp
         )
 
         Row(
@@ -623,7 +627,7 @@ private fun VisionMetricsSection(telemetry: TelemetryData?) {
 }
 
 /**
- * Single metric tile card.
+ * Single metric tile card with filled container background.
  */
 @Composable
 private fun MetricTile(
@@ -632,13 +636,13 @@ private fun MetricTile(
     unit: String,
     modifier: Modifier = Modifier
 ) {
-    OutlinedCard(
+    Card(
         modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
     ) {
         Column(
-            modifier = Modifier.padding(14.dp),
+            modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Row(
@@ -649,7 +653,8 @@ private fun MetricTile(
                 Text(
                     text = title,
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
             Row(
@@ -659,7 +664,8 @@ private fun MetricTile(
                 Text(
                     text = value,
                     style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Black
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 if (unit.isNotEmpty()) {
                     Text(
@@ -675,15 +681,15 @@ private fun MetricTile(
 }
 
 /**
- * Affective state and mood dynamics visualization.
+ * Affective state and mood dynamics visualization with filled card background.
  */
 @Composable
 private fun AffectiveDynamicsSection(telemetry: TelemetryData?) {
     val colorScheme = MaterialTheme.colorScheme
-    OutlinedCard(
+    Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.outlinedCardColors(containerColor = colorScheme.surfaceContainer)
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = colorScheme.surfaceContainer)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -695,9 +701,10 @@ private fun AffectiveDynamicsSection(telemetry: TelemetryData?) {
             ) {
                 Text(
                     text = "Mood",
-                    style = MaterialTheme.typography.titleSmall,
+                    style = MaterialTheme.typography.labelLarge,
                     color = colorScheme.primary,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.5.sp
                 )
             }
 
@@ -708,10 +715,16 @@ private fun AffectiveDynamicsSection(telemetry: TelemetryData?) {
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(text = stringResource(R.string.vision_affective_valence), style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        text = stringResource(R.string.vision_affective_valence),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colorScheme.onSurface
+                    )
                     Text(
                         text = String.format(Locale.US, "%+.2f", valence),
-                        style = MaterialTheme.typography.bodySmall
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = colorScheme.onSurface
                     )
                 }
                 LinearProgressIndicator(
@@ -732,10 +745,16 @@ private fun AffectiveDynamicsSection(telemetry: TelemetryData?) {
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(text = stringResource(R.string.vision_affective_arousal), style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        text = stringResource(R.string.vision_affective_arousal),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colorScheme.onSurface
+                    )
                     Text(
                         text = String.format(Locale.US, "%.2f", arousal),
-                        style = MaterialTheme.typography.bodySmall
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = colorScheme.onSurface
                     )
                 }
                 LinearProgressIndicator(
@@ -753,44 +772,50 @@ private fun AffectiveDynamicsSection(telemetry: TelemetryData?) {
 }
 
 /**
- * Embedded hardware stats section.
+ * Embedded hardware stats section with filled card and filled status chips.
  */
 @Composable
 private fun HardwareDiagnosticsSection(telemetry: TelemetryData?) {
-    OutlinedCard(
+    Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.outlinedCardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Text(
                 text = "System Diagnostics",
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.secondary
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.5.sp
             )
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 DiagnosticItem(
                     label = stringResource(R.string.vision_sys_cpu),
-                    value = "${telemetry?.cpuMhz ?: 240} MHz"
+                    value = "${telemetry?.cpuMhz ?: 240} MHz",
+                    modifier = Modifier.weight(1f)
                 )
                 DiagnosticItem(
                     label = stringResource(R.string.vision_sys_heap),
-                    value = "${(telemetry?.heapFree ?: 0L) / 1024} KB"
+                    value = "${(telemetry?.heapFree ?: 0L) / 1024} KB",
+                    modifier = Modifier.weight(1f)
                 )
                 DiagnosticItem(
                     label = stringResource(R.string.vision_sys_psram),
-                    value = "${(telemetry?.psramFree ?: 0L) / 1024 / 1024} MB"
+                    value = "${(telemetry?.psramFree ?: 0L) / 1024 / 1024} MB",
+                    modifier = Modifier.weight(1f)
                 )
                 DiagnosticItem(
                     label = stringResource(R.string.vision_sys_uptime),
-                    value = "${(telemetry?.uptimeSeconds ?: 0L) / 60}m"
+                    value = "${(telemetry?.uptimeSeconds ?: 0L) / 60}m",
+                    modifier = Modifier.weight(1f)
                 )
             }
         }
@@ -798,26 +823,42 @@ private fun HardwareDiagnosticsSection(telemetry: TelemetryData?) {
 }
 
 @Composable
-private fun DiagnosticItem(label: String, value: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            text = label, 
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodySmall,
-            fontWeight = FontWeight.SemiBold
-        )
+private fun DiagnosticItem(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp)
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = value,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
     }
 }
 
 /**
- * Dialog to configure ESP32 host IP with presets and Auto-Discovery.
+ * Bottom sheet to configure ESP32 host IP with presets and Auto-Discovery.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun IpConfigDialog(
+private fun IpConfigBottomSheet(
     currentIp: String,
     isDiscovering: Boolean,
     onDismiss: () -> Unit,
@@ -826,80 +867,99 @@ private fun IpConfigDialog(
 ) {
     var ipText by remember { mutableStateOf(currentIp) }
 
-    AlertDialog(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.dialog_ip_title)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(
-                    text = stringResource(R.string.dialog_ip_message),
-                    style = MaterialTheme.typography.bodySmall
-                )
-                OutlinedTextField(
-                    value = ipText,
-                    onValueChange = { ipText = it },
-                    placeholder = { Text(stringResource(R.string.vision_host_placeholder)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
-                )
+        dragHandle = { BottomSheetDefaults.DragHandle() },
+        containerColor = MaterialTheme.colorScheme.surface,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.dialog_ip_title),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
 
-                Text(
-                    text = stringResource(R.string.label_quick_presets),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.secondary
+            Text(
+                text = stringResource(R.string.dialog_ip_message),
+                style = MaterialTheme.typography.bodyMedium
+            )
+
+            OutlinedTextField(
+                value = ipText,
+                onValueChange = { ipText = it },
+                placeholder = { Text(stringResource(R.string.vision_host_placeholder)) },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            )
+
+            Text(
+                text = stringResource(R.string.label_quick_presets),
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.primary
+            )
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                AssistChip(
+                    onClick = { ipText = "192.168.18.16" },
+                    label = { Text("192.168.18.16") }
                 )
-
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    AssistChip(
-                        onClick = { ipText = "192.168.18.16" },
-                        label = { Text("192.168.18.16") }
-                    )
-                    AssistChip(
-                        onClick = { ipText = "kore.local" },
-                        label = { Text("kore.local") }
-                    )
-                }
-
-                Button(
-                    onClick = onAutoDiscover,
-                    enabled = !isDiscovering,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    if (isDiscovering) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            color = Color.White,
-                            strokeWidth = 2.dp
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(stringResource(R.string.vision_status_discovering))
-                    } else {
-                        Icon(imageVector = Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(stringResource(R.string.vision_btn_auto_scan))
-                    }
-                }
+                AssistChip(
+                    onClick = { ipText = "kore.local" },
+                    label = { Text("kore.local") }
+                )
             }
-        },
-        confirmButton = {
+
             Button(
-                onClick = { onSave(ipText) },
+                onClick = onAutoDiscover,
+                enabled = !isDiscovering,
+                modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text(stringResource(R.string.dialog_btn_save))
+                if (isDiscovering) {
+                    KoReInlineLoading(
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(stringResource(R.string.vision_status_discovering))
+                } else {
+                    Icon(imageVector = Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(stringResource(R.string.vision_btn_auto_scan))
+                }
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.btn_cancel))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(R.string.btn_cancel))
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Button(
+                    onClick = { onSave(ipText) },
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(stringResource(R.string.dialog_btn_save))
+                }
             }
         }
-    )
+    }
 }
 
 /**

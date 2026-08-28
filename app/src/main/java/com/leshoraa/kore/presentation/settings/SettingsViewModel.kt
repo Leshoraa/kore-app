@@ -103,12 +103,12 @@ class SettingsViewModel(
         loadWeatherConfig()
     }
 
-    fun openWeatherDialog() {
+    fun openWeatherBottomSheet() {
         loadWeatherConfig()
         _weatherState.update { it.copy(isDialogOpen = true, errorMessage = null, successMessage = null) }
     }
 
-    fun closeWeatherDialog() {
+    fun closeWeatherBottomSheet() {
         _weatherState.update { it.copy(isDialogOpen = false) }
     }
 
@@ -311,12 +311,12 @@ class SettingsViewModel(
         }
     }
 
-    fun openDialog() {
+    fun openDeviceConfigBottomSheet() {
         refreshFromDevice()
         _uiState.update { it.copy(isDialogOpen = true, errorMessage = null, successMessage = null) }
     }
 
-    fun closeDialog() {
+    fun closeDeviceConfigBottomSheet() {
         _uiState.update { it.copy(isDialogOpen = false) }
     }
 

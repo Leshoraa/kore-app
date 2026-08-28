@@ -30,6 +30,7 @@ class PreferencesManager(context: Context) : UserPreferencesRepository {
         private const val KEY_WEATHER_LON = "key_weather_lon"
         private const val KEY_WEATHER_ENABLED = "key_weather_enabled"
         private const val KEY_WEATHER_TZ = "key_weather_tz"
+        private const val KEY_SYSTEM_ACCESS_TIP_DISMISSED = "key_system_access_tip_dismissed"
         
         const val DEFAULT_BRIGHTNESS = 100
         const val MIN_BRIGHTNESS = 1
@@ -154,6 +155,14 @@ class PreferencesManager(context: Context) : UserPreferencesRepository {
             .putBoolean(KEY_WEATHER_ENABLED, config.isEnabled)
             .putInt(KEY_WEATHER_TZ, config.timezoneOffsetSec)
             .apply()
+    }
+
+    override fun isSystemAccessTipDismissed(): Boolean {
+        return sharedPreferences.getBoolean(KEY_SYSTEM_ACCESS_TIP_DISMISSED, false)
+    }
+
+    override fun setSystemAccessTipDismissed(dismissed: Boolean) {
+        sharedPreferences.edit().putBoolean(KEY_SYSTEM_ACCESS_TIP_DISMISSED, dismissed).apply()
     }
 
     private fun valToExpressionCode(value: Int): Int? {

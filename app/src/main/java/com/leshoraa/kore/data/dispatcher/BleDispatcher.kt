@@ -235,6 +235,24 @@ class BleDispatcher(private val bleManager: BleManager) {
 
 
     /**
+     * Queries an immediate telemetry snapshot from KoRe over BLE.
+     */
+    suspend fun dispatchQueryTelemetry(): Result<Unit> = sendMutex.withLock {
+        return@withLock bleManager.queryTelemetry()
+    }
+
+    /**
+     * Enables or disables live periodic telemetry notifications from KoRe over BLE.
+     */
+    suspend fun dispatchTelemetryStreaming(enable: Boolean, intervalMs: Long = 500L): Result<Unit> = sendMutex.withLock {
+        return@withLock if (enable) {
+            bleManager.startTelemetryStreaming(intervalMs)
+        } else {
+            bleManager.stopTelemetryStreaming()
+        }
+    }
+
+    /**
      * Splits data into fragments that fit within the MTU.
      */
     private fun fragment(data: ByteArray, mtu: Int): List<ByteArray> {

@@ -2,36 +2,53 @@ package com.leshoraa.kore.presentation.dashboard
 
 import android.bluetooth.BluetoothProfile
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BluetoothConnected
 import androidx.compose.material.icons.filled.BluetoothDisabled
+import androidx.compose.material.icons.filled.BluetoothSearching
 import androidx.compose.material.icons.filled.BrightnessLow
 import androidx.compose.material.icons.filled.BrightnessMedium
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.SettingsSuggest
 import androidx.compose.material.icons.filled.Widgets
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import com.leshoraa.kore.R
+import com.leshoraa.kore.core.common.PermissionManager
 import com.leshoraa.kore.domain.model.Expression
 import com.leshoraa.kore.domain.model.NotificationEvent
+import com.leshoraa.kore.presentation.components.KoReInlineLoading
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+/**
+ * Dashboard screen displaying hardware connection status, environmental metrics,
+ * and recent notification logs.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
@@ -39,14 +56,27 @@ fun DashboardScreen(
     isDarkTheme: Boolean = false,
     onToggleTheme: () -> Unit = {},
     onEnableBluetooth: () -> Unit = {},
-    onNavigateToScanner: () -> Unit
+    onNavigateToScanner: () -> Unit,
+    onNavigateToSettings: (String?) -> Unit
 ) {
+    val context = LocalContext.current
     val connectionState by viewModel.connectionState.collectAsState()
     val isBluetoothEnabled by viewModel.isBluetoothEnabled.collectAsState()
     val connectedDeviceName by viewModel.connectedDeviceName.collectAsState()
     val brightness by viewModel.brightness.collectAsState()
     val selectedExpression by viewModel.selectedExpression.collectAsState()
     val logs by viewModel.logs.collectAsState()
+    
+    val isSystemAccessTipDismissed by viewModel.isSystemAccessTipDismissed.collectAsState()
+    val isBluetoothTipDismissed by viewModel.isBluetoothTipDismissed.collectAsState()
+
+    // Periodically update permission status when the screen is visible
+    LaunchedEffect(Unit) {
+        viewModel.updatePermissionStatus(
+            notificationAccess = PermissionManager.isNotificationListenerEnabled(context),
+            batteryOptimization = PermissionManager.isBatteryOptimizationIgnored(context)
+        )
+    }
 
     
     val testTitle by viewModel.testTitle.collectAsState()
@@ -83,10 +113,56 @@ fun DashboardScreen(
                 .fillMaxSize(),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
         ) {
-            if (!isBluetoothEnabled) {
-                item(key = "bluetooth_warning", contentType = "warning") {
-                    BluetoothDisabledWarning(onEnableClick = onEnableBluetooth)
-                    Spacer(modifier = Modifier.height(12.dp))
+            item(key = "tips_carousel", contentType = "carousel") {
+                val bluetoothTipTitle = stringResource(R.string.tip_bluetooth_off_title)
+                val bluetoothTipDesc = stringResource(R.string.tip_bluetooth_off_desc)
+                val bluetoothActionLabel = stringResource(R.string.btn_turn_on)
+                
+                val systemAccessTipTitle = stringResource(R.string.tip_system_access_title)
+                val systemAccessTipDesc = stringResource(R.string.tip_system_access_desc)
+                
+                val tertiaryContainer = MaterialTheme.colorScheme.tertiaryContainer
+                val onTertiaryContainer = MaterialTheme.colorScheme.onTertiaryContainer
+                
+                val tips = remember(isBluetoothEnabled, isSystemAccessTipDismissed, isBluetoothTipDismissed, bluetoothTipTitle, systemAccessTipTitle) {
+                    mutableListOf<TipData>().apply {
+                        val needsSystemAccess = !PermissionManager.isNotificationListenerEnabled(context) || 
+                                              !PermissionManager.isBatteryOptimizationIgnored(context)
+                        
+                        if (needsSystemAccess && !isSystemAccessTipDismissed) {
+                            add(
+                                TipData(
+                                    title = systemAccessTipTitle,
+                                    description = systemAccessTipDesc,
+                                    icon = Icons.Default.SettingsSuggest,
+                                    containerColor = tertiaryContainer,
+                                    contentColor = onTertiaryContainer,
+                                    onClick = { onNavigateToSettings("system_access") },
+                                    onDismiss = { viewModel.dismissSystemAccessTip() }
+                                )
+                            )
+                        }
+
+                        if (!isBluetoothEnabled && !isBluetoothTipDismissed) {
+                            add(
+                                TipData(
+                                    title = bluetoothTipTitle,
+                                    description = bluetoothTipDesc,
+                                    icon = Icons.Default.BluetoothDisabled,
+                                    containerColor = Color(0xFFBA1A1A), // Error Red
+                                    contentColor = Color.White,
+                                    actionLabel = bluetoothActionLabel,
+                                    onAction = onEnableBluetooth,
+                                    onDismiss = { viewModel.dismissBluetoothTip() }
+                                )
+                            )
+                        }
+                    }
+                }
+
+                if (tips.isNotEmpty()) {
+                    TipsCarousel(tips = tips)
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
             }
 
@@ -171,6 +247,145 @@ fun DashboardScreen(
     }
 }
 
+/**
+ * A horizontal pager displaying a carousel of actionable tips or status warnings.
+ *
+ * @param tips List of data objects representing each tip in the carousel.
+ */
+@Composable
+fun TipsCarousel(tips: List<TipData>) {
+    val pagerState = rememberPagerState(pageCount = { tips.size })
+    
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxWidth()
+        ) { page ->
+            val tip = tips[page]
+            TipCard(
+                data = tip,
+                modifier = Modifier.padding(horizontal = 4.dp)
+            )
+        }
+        
+        if (tips.size > 1) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                Modifier
+                    .height(8.dp)
+                    .fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                repeat(tips.size) { iteration ->
+                    val color = if (pagerState.currentPage == iteration) 
+                        MaterialTheme.colorScheme.primary 
+                    else 
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                    Box(
+                        modifier = Modifier
+                            .padding(horizontal = 4.dp)
+                            .clip(CircleShape)
+                            .background(color)
+                            .size(6.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Data model for a single tip in the carousel.
+ *
+ * @param title Bold header text for the tip.
+ * @param description Supporting body text explaining the tip.
+ * @param icon Vector icon representing the tip category.
+ * @param containerColor Background color of the card.
+ * @param contentColor Color for text and icon foreground.
+ * @param actionLabel Optional text for a primary action button.
+ * @param onAction Callback for the primary action button.
+ * @param onClick Callback for clicking the entire card.
+ * @param onDismiss Callback for the close button.
+ */
+data class TipData(
+    val title: String,
+    val description: String,
+    val icon: ImageVector,
+    val containerColor: Color,
+    val contentColor: Color,
+    val actionLabel: String? = null,
+    val onAction: (() -> Unit)? = null,
+    val onClick: (() -> Unit)? = null,
+    val onDismiss: (() -> Unit)? = null
+)
+
+@Composable
+fun TipCard(
+    data: TipData,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .then(if (data.onClick != null) Modifier.clickable(onClick = data.onClick) else Modifier),
+        colors = CardDefaults.cardColors(
+            containerColor = data.containerColor,
+            contentColor = data.contentColor
+        ),
+        shape = RoundedCornerShape(24.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                color = data.contentColor.copy(alpha = 0.2f),
+                shape = CircleShape,
+                modifier = Modifier.size(40.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = data.icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = data.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = data.description,
+                    style = MaterialTheme.typography.labelSmall
+                )
+            }
+            
+            if (data.actionLabel != null && data.onAction != null) {
+                TextButton(
+                    onClick = data.onAction,
+                    colors = ButtonDefaults.textButtonColors(contentColor = data.contentColor)
+                ) {
+                    Text(data.actionLabel, fontWeight = FontWeight.Bold)
+                }
+            }
+            
+            if (data.onDismiss != null) {
+                IconButton(onClick = data.onDismiss) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Dismiss",
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
 @Composable
 fun ConnectionStatusCard(
     state: Int, 
@@ -199,11 +414,7 @@ fun ConnectionStatusCard(
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     if (isConnecting) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(22.dp),
-                            strokeWidth = 2.5.dp,
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                        KoReInlineLoading(modifier = Modifier.size(22.dp))
                     } else {
                         Icon(
                             imageVector = if (isConnected) Icons.Default.BluetoothConnected else Icons.Default.BluetoothDisabled,
@@ -393,11 +604,17 @@ fun ExpressionControlCard(
                         FilterChip(
                             selected = isAutoMood,
                             onClick = { onSelectExpression(null) },
-                            label = { Text(stringResource(if (isAutoMood) R.string.btn_default_auto_mood_selected else R.string.btn_default_auto_mood)) },
+                            label = { 
+                                Text(
+                                    text = stringResource(if (isAutoMood) R.string.btn_default_auto_mood_selected else R.string.btn_default_auto_mood),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = if (isAutoMood) FontWeight.Bold else FontWeight.Normal
+                                ) 
+                            },
                             shape = CircleShape,
                             colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                selectedContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                                selectedLabelColor = MaterialTheme.colorScheme.onTertiaryContainer
                             )
                         )
                     }
@@ -432,13 +649,14 @@ private fun ExpressionButton(
         label = { 
             Text(
                 text = expression.displayName,
-                style = MaterialTheme.typography.labelMedium
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
             )
         },
         shape = CircleShape,
         colors = FilterChipDefaults.filterChipColors(
-            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+            selectedContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
+            selectedLabelColor = MaterialTheme.colorScheme.onTertiaryContainer
         )
     )
 }
@@ -531,47 +749,6 @@ fun LogItem(event: NotificationEvent) {
         )
     )
     HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.8.dp)
-}
-
-@Composable
-fun BluetoothDisabledWarning(onEnableClick: () -> Unit) {
-    Card(
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.errorContainer,
-            contentColor = MaterialTheme.colorScheme.onErrorContainer
-        ),
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = Icons.Default.BluetoothDisabled,
-                contentDescription = null,
-                modifier = Modifier.size(24.dp)
-            )
-            Spacer(modifier = Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.msg_bluetooth_off),
-                    style = MaterialTheme.typography.titleSmall
-                )
-                Text(
-                    text = stringResource(R.string.msg_bluetooth_required),
-                    style = MaterialTheme.typography.labelSmall
-                )
-            }
-            TextButton(
-                onClick = onEnableClick,
-                colors = ButtonDefaults.textButtonColors(
-                    contentColor = MaterialTheme.colorScheme.error
-                )
-            ) {
-                Text(stringResource(R.string.btn_turn_on))
-            }
-        }
-    }
 }
 
 

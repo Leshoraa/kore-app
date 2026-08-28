@@ -7,9 +7,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
 import com.leshoraa.kore.core.common.ServiceLocator
 import com.leshoraa.kore.presentation.camera.CameraVisionScreen
 import com.leshoraa.kore.presentation.camera.CameraVisionViewModel
@@ -64,7 +67,17 @@ fun KoReNavGraph(
                     val enableBtIntent = Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE)
                     enableBluetoothLauncher.launch(enableBtIntent)
                 },
-                onNavigateToScanner = { navController.navigate("scanner") }
+                onNavigateToScanner = { navController.navigate("scanner") },
+                onNavigateToSettings = { section -> 
+                    val route = if (section != null) "settings?scrollToSection=$section" else "settings"
+                    navController.navigate(route) {
+                        popUpTo(navController.graph.findStartDestination().id) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                }
             )
         }
         composable("vision") {
@@ -74,7 +87,8 @@ fun KoReNavGraph(
                     ServiceLocator.provideGetTelemetryStreamUseCase(context),
                     ServiceLocator.provideUpdateCameraSensorUseCase(context),
                     ServiceLocator.providePreferencesManager(context),
-                    ServiceLocator.provideCameraVisionRepository(context)
+                    ServiceLocator.provideCameraVisionRepository(context),
+                    ServiceLocator.provideBleRepository(context)
                 )
             }
             CameraVisionScreen(
@@ -124,7 +138,17 @@ fun KoReNavGraph(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
-        composable("settings") {
+        composable(
+            route = "settings?scrollToSection={section}",
+            arguments = listOf(
+                navArgument("section") { 
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) { backStackEntry ->
+            val section = backStackEntry.arguments?.getString("section")
             val viewModel: com.leshoraa.kore.presentation.settings.SettingsViewModel = viewModel {
                 com.leshoraa.kore.presentation.settings.SettingsViewModel(
                     ServiceLocator.provideGetDeviceConfigUseCase(context),
@@ -142,6 +166,7 @@ fun KoReNavGraph(
                 viewModel = viewModel,
                 selectedPalette = selectedPalette,
                 onPaletteChange = onPaletteChange,
+                scrollToSection = section,
                 onNavigateToFilters = { navController.navigate("rules") }
             )
         }

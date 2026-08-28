@@ -10,10 +10,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoGraph
-import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material.icons.outlined.AutoGraph
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.Videocam
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -60,10 +63,30 @@ class MainActivity : ComponentActivity() {
                 val currentDestination = navBackStackEntry?.destination
 
                 val items = listOf(
-                    NavigationItem(stringResource(R.string.nav_dashboard), "dashboard", Icons.Default.AutoGraph),
-                    NavigationItem(stringResource(R.string.nav_vision), "vision", Icons.Default.Videocam),
-                    NavigationItem(stringResource(R.string.nav_logs), "logs", Icons.Default.History),
-                    NavigationItem(stringResource(R.string.nav_settings), "settings", Icons.Default.Settings)
+                    NavigationItem(
+                        label = stringResource(R.string.nav_dashboard),
+                        route = "dashboard",
+                        selectedIcon = Icons.Filled.AutoGraph,
+                        unselectedIcon = Icons.Outlined.AutoGraph
+                    ),
+                    NavigationItem(
+                        label = stringResource(R.string.nav_vision),
+                        route = "vision",
+                        selectedIcon = Icons.Filled.Videocam,
+                        unselectedIcon = Icons.Outlined.Videocam
+                    ),
+                    NavigationItem(
+                        label = stringResource(R.string.nav_logs),
+                        route = "logs",
+                        selectedIcon = Icons.Filled.History,
+                        unselectedIcon = Icons.Outlined.History
+                    ),
+                    NavigationItem(
+                        label = stringResource(R.string.nav_settings),
+                        route = "settings",
+                        selectedIcon = Icons.Filled.Settings,
+                        unselectedIcon = Icons.Outlined.Settings
+                    )
                 )
 
                 LaunchedEffect(Unit) {
@@ -80,10 +103,18 @@ class MainActivity : ComponentActivity() {
                             containerColor = MaterialTheme.colorScheme.surfaceContainer
                         ) {
                             items.forEach { item ->
+                                val selected = currentDestination?.hierarchy?.any { 
+                                    it.route?.startsWith(item.route) == true 
+                                } == true
                                 NavigationBarItem(
-                                    icon = { Icon(item.icon, contentDescription = item.label) },
+                                    icon = {
+                                        Icon(
+                                            imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
+                                            contentDescription = item.label
+                                        )
+                                    },
                                     label = { Text(item.label) },
-                                    selected = currentDestination?.hierarchy?.any { it.route == item.route } == true,
+                                    selected = selected,
                                     onClick = {
                                         navController.navigate(item.route) {
                                             popUpTo(navController.graph.findStartDestination().id) {

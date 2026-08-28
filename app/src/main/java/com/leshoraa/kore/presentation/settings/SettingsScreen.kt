@@ -10,6 +10,7 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -28,6 +29,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -39,20 +42,49 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.leshoraa.kore.R
+import com.leshoraa.kore.presentation.components.KoReInlineLoading
 import com.leshoraa.kore.presentation.theme.AppPalette
 
+/**
+ * Primary settings screen for application configuration and hardware setup.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel,
     selectedPalette: AppPalette = AppPalette.FOREST,
     onPaletteChange: (AppPalette) -> Unit = {},
+    scrollToSection: String? = null,
     onNavigateBack: (() -> Unit)? = null,
     onNavigateToFilters: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     val weatherState by viewModel.weatherState.collectAsState()
+    val scrollState = rememberScrollState()
+
+    var systemAccessOffset by remember { mutableStateOf(0f) }
+    var highlightSection by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(scrollToSection, systemAccessOffset) {
+        if (scrollToSection == "system_access" && systemAccessOffset > 0f) {
+            scrollState.animateScrollTo(systemAccessOffset.toInt())
+            highlightSection = "system_access"
+            kotlinx.coroutines.delay(3000)
+            highlightSection = null
+        }
+    }
+
+    val infiniteTransition = rememberInfiniteTransition(label = "highlight")
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 0.3f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(600, easing = LinearOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse"
+    )
 
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -102,119 +134,196 @@ fun SettingsScreen(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp)
+                .verticalScroll(scrollState)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             // Section: Appearance
-            Text(
-                text = stringResource(R.string.settings_theme_palette),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.height(12.dp))
+            Column {
+                Text(
+                    text = stringResource(R.string.settings_theme_palette),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
+                )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                AppPalette.values().forEach { palette ->
-                    ColorCircle(
-                        color = palette.primaryColor,
-                        isSelected = selectedPalette == palette,
-                        onClick = { onPaletteChange(palette) }
-                    )
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainer
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            AppPalette.entries.forEach { palette ->
+                                PaletteColorOption(
+                                    palette = palette,
+                                    isSelected = selectedPalette == palette,
+                                    onClick = { onPaletteChange(palette) }
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            // Section: Ambient & Weather
+            Column {
+                Text(
+                    text = stringResource(R.string.settings_section_weather),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
+                )
 
-            // Section: Weather & Ambient Display
-            Text(
-                text = stringResource(R.string.settings_section_weather),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.height(12.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainer
+                ) {
+                    Column(
+                        modifier = Modifier.padding(8.dp)
+                    ) {
+                        SettingItem(
+                            title = stringResource(R.string.weather_config_title),
+                            description = stringResource(R.string.weather_config_desc),
+                            icon = Icons.Default.Cloud,
+                            onClick = { viewModel.openWeatherBottomSheet() }
+                        )
 
-            SettingItem(
-                title = stringResource(R.string.weather_config_title),
-                description = stringResource(R.string.weather_config_desc),
-                icon = Icons.Default.Cloud,
-                onClick = { viewModel.openWeatherDialog() }
-            )
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                        )
 
-            Spacer(modifier = Modifier.height(16.dp))
+                        AmbientGlancesContent(
+                            isBleConnected = uiState.isBleConnected,
+                            onShowClock = viewModel::showClock,
+                            onShowWeather = viewModel::showWeather
+                        )
+                    }
+                }
+            }
 
-            AmbientGlancesCard(
-                isBleConnected = uiState.isBleConnected,
-                onShowClock = viewModel::showClock,
-                onShowWeather = viewModel::showWeather
-            )
+            // Section: Connectivity & Hardware
+            Column {
+                Text(
+                    text = stringResource(R.string.settings_section_connectivity),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
+                )
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Section: Hardware Configuration
-            Text(
-                text = stringResource(R.string.settings_section_connectivity),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-
-            SettingItem(
-                title = stringResource(R.string.device_config_title),
-                description = stringResource(R.string.device_config_desc),
-                icon = Icons.Default.Router,
-                onClick = { viewModel.openDialog() }
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainer
+                ) {
+                    Column(
+                        modifier = Modifier.padding(8.dp)
+                    ) {
+                        SettingItem(
+                            title = stringResource(R.string.device_config_title),
+                            description = stringResource(R.string.device_config_desc),
+                            icon = Icons.Default.Router,
+                            onClick = { viewModel.openDeviceConfigBottomSheet() }
+                        )
+                    }
+                }
+            }
 
             // Section: Notification Rules
-            Text(
-                text = stringResource(R.string.settings_section_notifications),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.height(12.dp))
+            Column {
+                Text(
+                    text = stringResource(R.string.settings_section_notifications),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
+                )
 
-            SettingItem(
-                title = stringResource(R.string.rules_title),
-                description = "Manage which apps can send notifications to KoRe.",
-                icon = Icons.Default.FilterList,
-                onClick = onNavigateToFilters
-            )
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainer
+                ) {
+                    Column(
+                        modifier = Modifier.padding(8.dp)
+                    ) {
+                        SettingItem(
+                            title = stringResource(R.string.rules_title),
+                            description = "Manage which apps can send notifications to KoRe.",
+                            icon = Icons.Default.FilterList,
+                            onClick = onNavigateToFilters
+                        )
+                    }
+                }
+            }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            // Section: System Access
+            Column(
+                modifier = Modifier
+                    .onGloballyPositioned { coordinates ->
+                        systemAccessOffset = coordinates.positionInParent().y
+                    }
+                    .background(
+                        if (highlightSection == "system_access") 
+                            MaterialTheme.colorScheme.primary.copy(alpha = 1f - pulseAlpha) 
+                        else Color.Transparent,
+                        shape = RoundedCornerShape(16.dp)
+                    )
+                    .padding(if (highlightSection == "system_access") 8.dp else 0.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.settings_stability_guards),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
+                )
 
-            // Section: System Stability
-            Text(
-                text = stringResource(R.string.settings_stability_guards),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary
-            )
-            Spacer(modifier = Modifier.height(12.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainer
+                ) {
+                    Column(
+                        modifier = Modifier.padding(8.dp)
+                    ) {
+                        SettingItem(
+                            title = stringResource(R.string.settings_battery_optimization),
+                            description = stringResource(R.string.settings_battery_optimization_desc),
+                            icon = Icons.Default.BatteryChargingFull,
+                            onClick = { requestIgnoreBatteryOptimizations(context) }
+                        )
 
-            SettingItem(
-                title = stringResource(R.string.settings_battery_optimization),
-                description = stringResource(R.string.settings_battery_optimization_desc),
-                icon = Icons.Default.BatteryChargingFull,
-                onClick = { requestIgnoreBatteryOptimizations(context) }
-            )
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)
+                        )
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-            SettingItem(
-                title = stringResource(R.string.settings_notification_access),
-                description = stringResource(R.string.settings_notification_access_desc),
-                icon = Icons.Default.Notifications,
-                onClick = { openNotificationListenerSettings(context) }
-            )
+                        SettingItem(
+                            title = stringResource(R.string.settings_notification_access),
+                            description = stringResource(R.string.settings_notification_access_desc),
+                            icon = Icons.Default.Notifications,
+                            onClick = { openNotificationListenerSettings(context) }
+                        )
+                    }
+                }
+            }
         }
     }
 
     if (uiState.isDialogOpen) {
-        DeviceConfigDialog(
+        DeviceConfigBottomSheet(
             state = uiState,
             onStaSsidChange = viewModel::onStaSsidChanged,
             onStaPassChange = viewModel::onStaPassChanged,
@@ -225,12 +334,12 @@ fun SettingsScreen(
             onToggleApPass = viewModel::toggleApPassVisibility,
             onRefresh = viewModel::refreshFromDevice,
             onSave = viewModel::saveConfig,
-            onDismiss = viewModel::closeDialog
+            onDismiss = viewModel::closeDeviceConfigBottomSheet
         )
     }
 
     if (weatherState.isDialogOpen) {
-        WeatherConfigDialog(
+        WeatherConfigBottomSheet(
             state = weatherState,
             isBleConnected = uiState.isBleConnected,
             onCityChange = viewModel::onWeatherCityChanged,
@@ -257,13 +366,17 @@ fun SettingsScreen(
             onSyncNow = viewModel::syncTimeAndWeatherNow,
             onRefresh = viewModel::loadWeatherConfig,
             onSave = viewModel::saveWeatherConfig,
-            onDismiss = viewModel::closeWeatherDialog
+            onDismiss = viewModel::closeWeatherBottomSheet
         )
     }
 }
 
+/**
+ * Bottom sheet for configuring KoRe hardware network settings (Wi-Fi, AP, BLE).
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DeviceConfigDialog(
+fun DeviceConfigBottomSheet(
     state: DeviceConfigUiState,
     onStaSsidChange: (String) -> Unit,
     onStaPassChange: (String) -> Unit,
@@ -276,149 +389,138 @@ fun DeviceConfigDialog(
     onSave: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    Dialog(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        dragHandle = { BottomSheetDefaults.DragHandle() },
+        containerColor = MaterialTheme.colorScheme.surface,
+        tonalElevation = 6.dp
     ) {
-        Surface(
+        Column(
             modifier = Modifier
-                .fillMaxWidth(0.95f)
-                .wrapContentHeight(),
-            shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 6.dp
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(bottom = 32.dp) // Extra padding for the bottom
         ) {
-            Column(
-                modifier = Modifier.wrapContentHeight()
+            // Header: Clean & Integrated
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // Header: Clean & Integrated
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 24.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = stringResource(R.string.device_config_title),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = if (state.isBleConnected) stringResource(R.string.status_ble_connected) else stringResource(R.string.status_ble_disconnected),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (state.isBleConnected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-                        )
-                    }
+                Column {
+                    Text(
+                        text = stringResource(R.string.device_config_title),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = if (state.isBleConnected) stringResource(R.string.status_ble_connected) else stringResource(R.string.status_ble_disconnected),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (state.isBleConnected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                    )
+                }
 
-                    Row {
-                        IconButton(onClick = onRefresh, enabled = !state.isLoading) {
-                            if (state.isLoading) {
-                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                            } else {
-                                Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.status_sync), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                        IconButton(onClick = onDismiss) {
-                            Icon(Icons.Default.Close, contentDescription = "Close", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                IconButton(onClick = onRefresh, enabled = !state.isLoading) {
+                    if (state.isLoading) {
+                        KoReInlineLoading(modifier = Modifier.size(20.dp))
+                    } else {
+                        Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.status_sync), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+
+            // Main Content
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp)
+            ) {
+                // Feedback Messages
+                if (state.successMessage != null || state.errorMessage != null) {
+                    val isError = state.errorMessage != null
+                    Surface(
+                        color = if (isError) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f) else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = if (isError) Icons.Default.Error else Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = state.errorMessage ?: state.successMessage ?: "",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (isError) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer
+                            )
                         }
                     }
                 }
 
-                // Main Content
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 24.dp),
-                    verticalArrangement = Arrangement.spacedBy(24.dp)
-                ) {
-                    // Feedback Messages (Integrated)
-                    if (state.successMessage != null || state.errorMessage != null) {
-                        val isError = state.errorMessage != null
-                        Surface(
-                            color = if (isError) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f) else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = if (isError) Icons.Default.Error else Icons.Default.CheckCircle,
-                                    contentDescription = null,
-                                    tint = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Text(
-                                    text = state.errorMessage ?: state.successMessage ?: "",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = if (isError) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                            }
-                        }
-                    }
+                // Section: Wi-Fi Router
+                ConfigSection(title = stringResource(R.string.section_wifi_sta), icon = Icons.Default.Wifi) {
+                    CustomTextField(
+                        value = state.staSsid,
+                        onValueChange = onStaSsidChange,
+                        label = stringResource(R.string.label_sta_ssid),
+                        placeholder = stringResource(R.string.placeholder_sta_ssid)
+                    )
+                    CustomTextField(
+                        value = state.staPass,
+                        onValueChange = onStaPassChange,
+                        label = stringResource(R.string.label_sta_pass),
+                        placeholder = stringResource(R.string.label_keep_existing),
+                        isPassword = true,
+                        passwordVisible = state.staPassVisible,
+                        onToggleVisibility = onToggleStaPass
+                    )
+                }
 
-                    // Section: Wi-Fi Router
-                    ConfigSection(title = stringResource(R.string.section_wifi_sta), icon = Icons.Default.Wifi) {
-                        CustomTextField(
-                            value = state.staSsid,
-                            onValueChange = onStaSsidChange,
-                            label = stringResource(R.string.label_sta_ssid),
-                            placeholder = stringResource(R.string.placeholder_sta_ssid)
-                        )
-                        CustomTextField(
-                            value = state.staPass,
-                            onValueChange = onStaPassChange,
-                            label = stringResource(R.string.label_sta_pass),
-                            placeholder = stringResource(R.string.label_keep_existing),
-                            isPassword = true,
-                            passwordVisible = state.staPassVisible,
-                            onToggleVisibility = onToggleStaPass
-                        )
-                    }
+                // Section: Device Hotspot
+                ConfigSection(title = stringResource(R.string.section_kore_ap), icon = Icons.Default.WifiTethering) {
+                    CustomTextField(
+                        value = state.apSsid,
+                        onValueChange = onApSsidChange,
+                        label = stringResource(R.string.label_ap_ssid),
+                        placeholder = stringResource(R.string.placeholder_ap_ssid)
+                    )
+                    CustomTextField(
+                        value = state.apPass,
+                        onValueChange = onApPassChange,
+                        label = stringResource(R.string.label_ap_pass),
+                        placeholder = stringResource(R.string.placeholder_ap_pass),
+                        isPassword = true,
+                        passwordVisible = state.apPassVisible,
+                        onToggleVisibility = onToggleApPass
+                    )
+                }
 
-                    // Section: Device Hotspot
-                    ConfigSection(title = stringResource(R.string.section_kore_ap), icon = Icons.Default.WifiTethering) {
-                        CustomTextField(
-                            value = state.apSsid,
-                            onValueChange = onApSsidChange,
-                            label = stringResource(R.string.label_ap_ssid),
-                            placeholder = stringResource(R.string.placeholder_ap_ssid)
-                        )
-                        CustomTextField(
-                            value = state.apPass,
-                            onValueChange = onApPassChange,
-                            label = stringResource(R.string.label_ap_pass),
-                            placeholder = stringResource(R.string.placeholder_ap_pass),
-                            isPassword = true,
-                            passwordVisible = state.apPassVisible,
-                            onToggleVisibility = onToggleApPass
-                        )
-                    }
-
-                    // Section: Bluetooth
-                    ConfigSection(title = stringResource(R.string.section_bluetooth), icon = Icons.Default.Bluetooth) {
-                        CustomTextField(
-                            value = state.bleName,
-                            onValueChange = onBleNameChange,
-                            label = stringResource(R.string.label_ble_name),
-                            placeholder = stringResource(R.string.placeholder_ble_name)
-                        )
-                    }
-                    
-                    Spacer(modifier = Modifier.height(8.dp))
+                // Section: Bluetooth
+                ConfigSection(title = stringResource(R.string.section_bluetooth), icon = Icons.Default.Bluetooth) {
+                    CustomTextField(
+                        value = state.bleName,
+                        onValueChange = onBleNameChange,
+                        label = stringResource(R.string.label_ble_name),
+                        placeholder = stringResource(R.string.placeholder_ble_name)
+                    )
                 }
 
                 // Actions: Cohesive Material 3 Buttons
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(24.dp),
+                        .padding(vertical = 8.dp),
                     horizontalArrangement = Arrangement.End,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -436,7 +538,7 @@ fun DeviceConfigDialog(
                         contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)
                     ) {
                         if (state.isSaving) {
-                            CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+                            KoReInlineLoading(modifier = Modifier.size(18.dp))
                         } else {
                             Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
@@ -521,31 +623,64 @@ private fun CustomTextField(
 }
 
 @Composable
-fun ColorCircle(
-    color: Color,
+fun PaletteColorOption(
+    palette: AppPalette,
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
-    Box(
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
-            .size(48.dp)
-            .clip(CircleShape)
-            .background(color)
-            .border(
-                width = if (isSelected) 3.dp else 0.dp,
-                color = if (isSelected) MaterialTheme.colorScheme.onSurface else Color.Transparent,
-                shape = CircleShape
-            )
+            .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
+            .padding(8.dp)
     ) {
-        if (isSelected) {
-            Icon(
-                imageVector = Icons.Default.Check,
-                contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier.align(Alignment.Center).size(24.dp)
-            )
+        Box(
+            modifier = Modifier.size(48.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            if (isSelected) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .border(
+                            width = 2.dp,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                            shape = CircleShape
+                        )
+                )
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .background(palette.primaryColor),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(palette.primaryColor)
+                )
+            }
         }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Text(
+            text = palette.label,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+            color = if (isSelected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
@@ -556,31 +691,48 @@ fun SettingItem(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     onClick: () -> Unit
 ) {
-    Surface(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)),
+            contentAlignment = Alignment.Center
         ) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-            Spacer(modifier = Modifier.width(16.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(text = title, style = MaterialTheme.typography.bodyLarge)
-                Text(
-                    text = description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
             Icon(
-                imageVector = Icons.Default.ChevronRight,
+                imageVector = icon,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp)
             )
         }
+        Spacer(modifier = Modifier.width(16.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Icon(
+            imageVector = Icons.Default.ChevronRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
@@ -596,19 +748,22 @@ private fun openNotificationListenerSettings(context: Context) {
 }
 
 @Composable
-fun AmbientGlancesCard(
+fun AmbientGlancesContent(
     isBleConnected: Boolean,
     onShowClock: () -> Unit,
     onShowWeather: () -> Unit
 ) {
-    OutlinedCard(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+    Column(modifier = Modifier.padding(12.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)),
+                contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.Widgets,
@@ -616,79 +771,84 @@ fun AmbientGlancesCard(
                     tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(20.dp)
                 )
-                Spacer(modifier = Modifier.width(8.dp))
-                Column {
-                    Text(
-                        text = stringResource(R.string.title_ambient_glances),
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                    Text(
-                        text = stringResource(R.string.desc_ambient_glances),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
             }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                FilledTonalButton(
-                    onClick = onShowClock,
-                    modifier = Modifier.weight(1f),
-                    enabled = isBleConnected,
-                    shape = MaterialTheme.shapes.medium
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.AccessTime,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = stringResource(R.string.btn_show_clock),
-                        style = MaterialTheme.typography.labelMedium
-                    )
-                }
-
-                FilledTonalButton(
-                    onClick = onShowWeather,
-                    modifier = Modifier.weight(1f),
-                    enabled = isBleConnected,
-                    shape = MaterialTheme.shapes.medium
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Cloud,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = stringResource(R.string.btn_show_weather),
-                        style = MaterialTheme.typography.labelMedium
-                    )
-                }
-            }
-
-            if (!isBleConnected) {
-                Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.width(16.dp))
+            Column {
                 Text(
-                    text = stringResource(R.string.msg_hardware_offline),
-                    style = MaterialTheme.typography.bodySmall,
+                    text = stringResource(R.string.title_ambient_glances),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = stringResource(R.string.desc_ambient_glances),
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            FilledTonalButton(
+                onClick = onShowClock,
+                modifier = Modifier.weight(1f),
+                enabled = isBleConnected,
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.AccessTime,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = stringResource(R.string.btn_show_clock),
+                    style = MaterialTheme.typography.labelLarge
+                )
+            }
+
+            FilledTonalButton(
+                onClick = onShowWeather,
+                modifier = Modifier.weight(1f),
+                enabled = isBleConnected,
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Cloud,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = stringResource(R.string.btn_show_weather),
+                    style = MaterialTheme.typography.labelLarge
+                )
+            }
+        }
+
+        if (!isBleConnected) {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.msg_hardware_offline),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+            )
+        }
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+/**
+ * Bottom sheet for configuring weather forecasts and location coordinates.
+ */
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
-fun WeatherConfigDialog(
+fun WeatherConfigBottomSheet(
     state: WeatherConfigUiState,
     isBleConnected: Boolean,
     onCityChange: (String) -> Unit,
@@ -703,290 +863,274 @@ fun WeatherConfigDialog(
     onSave: () -> Unit,
     onDismiss: () -> Unit
 ) {
-    Dialog(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        dragHandle = { BottomSheetDefaults.DragHandle() },
+        containerColor = MaterialTheme.colorScheme.surface,
+        tonalElevation = 6.dp
     ) {
-        Surface(
+        Column(
             modifier = Modifier
-                .fillMaxWidth(0.95f)
-                .wrapContentHeight(),
-            shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 6.dp
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(bottom = 32.dp)
         ) {
-            Column(
-                modifier = Modifier.wrapContentHeight()
+            // Header
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // Header
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 24.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = stringResource(R.string.weather_config_title),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = if (isBleConnected) stringResource(R.string.status_ble_connected) else stringResource(R.string.status_ble_disconnected),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (isBleConnected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-                        )
-                    }
-
-                    Row {
-                        IconButton(onClick = onRefresh) {
-                            Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.status_sync), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        IconButton(onClick = onDismiss) {
-                            Icon(Icons.Default.Close, contentDescription = "Close", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                    }
+                Column {
+                    Text(
+                        text = stringResource(R.string.weather_config_title),
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = if (isBleConnected) stringResource(R.string.status_ble_connected) else stringResource(R.string.status_ble_disconnected),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (isBleConnected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                    )
                 }
 
-                // Main Scrollable Content
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 24.dp),
-                    verticalArrangement = Arrangement.spacedBy(20.dp)
-                ) {
-                    // Feedback Messages
-                    if (state.successMessage != null || state.errorMessage != null) {
-                        val isError = state.errorMessage != null
-                        Surface(
-                            color = if (isError) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f) else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = if (isError) Icons.Default.Error else Icons.Default.CheckCircle,
-                                    contentDescription = null,
-                                    tint = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Text(
-                                    text = state.errorMessage ?: state.successMessage ?: "",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = if (isError) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer
-                                )
-                            }
-                        }
-                    }
+                IconButton(onClick = onRefresh) {
+                    Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.status_sync), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
 
-                    // Section: Location & Coordinates
-                    ConfigSection(title = stringResource(R.string.label_weather_city), icon = Icons.Default.LocationOn) {
-                        OutlinedButton(
-                            onClick = onUseGpsLocation,
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            enabled = !state.isAcquiringLocation
-                        ) {
-                            if (state.isAcquiringLocation) {
-                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Detecting GPS Location...", style = MaterialTheme.typography.labelMedium)
-                            } else {
-                                Icon(Icons.Default.MyLocation, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(stringResource(R.string.btn_use_gps), style = MaterialTheme.typography.labelMedium)
-                            }
-                        }
-
-                        CustomTextField(
-                            value = state.city,
-                            onValueChange = onCityChange,
-                            label = stringResource(R.string.label_weather_city),
-                            placeholder = stringResource(R.string.placeholder_weather_city)
-                        )
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            OutlinedTextField(
-                                value = state.latitude,
-                                onValueChange = onLatChange,
-                                label = { Text(stringResource(R.string.label_weather_lat), style = MaterialTheme.typography.bodyMedium) },
-                                placeholder = { Text(stringResource(R.string.placeholder_weather_lat), style = MaterialTheme.typography.bodyMedium) },
-                                singleLine = true,
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(12.dp),
-                                textStyle = MaterialTheme.typography.bodyLarge,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    unfocusedContainerColor = Color.Transparent,
-                                    focusedContainerColor = Color.Transparent,
-                                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                                    focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
-                                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                                )
-                            )
-
-                            OutlinedTextField(
-                                value = state.longitude,
-                                onValueChange = onLonChange,
-                                label = { Text(stringResource(R.string.label_weather_lon), style = MaterialTheme.typography.bodyMedium) },
-                                placeholder = { Text(stringResource(R.string.placeholder_weather_lon), style = MaterialTheme.typography.bodyMedium) },
-                                singleLine = true,
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(12.dp),
-                                textStyle = MaterialTheme.typography.bodyLarge,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    unfocusedContainerColor = Color.Transparent,
-                                    focusedContainerColor = Color.Transparent,
-                                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                                    focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
-                                    unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                                )
-                            )
-                        }
-                    }
-
-                    // Section: Quick Presets
-                    ConfigSection(title = stringResource(R.string.label_city_presets), icon = Icons.Default.Public) {
-                        FlowRow(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            com.leshoraa.kore.domain.model.WeatherLocationConfig.PRESETS.forEach { preset ->
-                                val isSelected = state.city.equals(preset.city, ignoreCase = true)
-                                FilterChip(
-                                    selected = isSelected,
-                                    onClick = { onPresetSelected(preset) },
-                                    label = { Text(preset.city, style = MaterialTheme.typography.labelSmall) },
-                                    shape = CircleShape,
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
-                                    )
-                                )
-                            }
-                        }
-                    }
-
-                    // Section: Timezone Offset
-                    ConfigSection(title = stringResource(R.string.label_weather_tz), icon = Icons.Default.Schedule) {
-                        FlowRow(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            listOf(
-                                "WIB (UTC+7)" to 25200,
-                                "WITA (UTC+8)" to 28800,
-                                "WIT (UTC+9)" to 32400,
-                                "GMT (UTC+0)" to 0,
-                                "EST (UTC-5)" to -18000
-                            ).forEach { (label, offsetSec) ->
-                                val isSelected = state.timezoneOffsetSec == offsetSec
-                                FilterChip(
-                                    selected = isSelected,
-                                    onClick = { onTzChange(offsetSec) },
-                                    label = { Text(label, style = MaterialTheme.typography.labelSmall) },
-                                    shape = CircleShape,
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-                                        selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
-                                    )
-                                )
-                            }
-                        }
-                    }
-
-                    // Section: Spontaneous Ambient Glance Toggle
+            // Main Scrollable Content
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                // Feedback Messages
+                if (state.successMessage != null || state.errorMessage != null) {
+                    val isError = state.errorMessage != null
                     Surface(
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                        color = if (isError) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f) else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
-                            modifier = Modifier.padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = stringResource(R.string.label_weather_enabled),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Text(
-                                    text = "Periodically preview weather and clock on OLED automatically.",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Switch(
-                                checked = state.isEnabled,
-                                onCheckedChange = onEnabledChange
+                            Icon(
+                                imageVector = if (isError) Icons.Default.Error else Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = state.errorMessage ?: state.successMessage ?: "",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (isError) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimaryContainer
                             )
                         }
                     }
-
-                    Spacer(modifier = Modifier.height(8.dp))
                 }
 
-                // Actions Footer
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Row(
+                // Section: Location & Coordinates
+                ConfigSection(title = stringResource(R.string.label_weather_city), icon = Icons.Default.LocationOn) {
+                    OutlinedButton(
+                        onClick = onUseGpsLocation,
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        enabled = !state.isAcquiringLocation
                     ) {
-                        OutlinedButton(
-                            onClick = onSyncNow,
-                            enabled = !state.isSaving && isBleConnected,
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.weight(1f),
-                            contentPadding = PaddingValues(vertical = 12.dp)
-                        ) {
-                            Icon(Icons.Default.CloudSync, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(stringResource(R.string.btn_sync_now), style = MaterialTheme.typography.labelMedium)
-                        }
-
-                        Button(
-                            onClick = onSave,
-                            enabled = !state.isSaving && isBleConnected,
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.weight(1f),
-                            contentPadding = PaddingValues(vertical = 12.dp)
-                        ) {
-                            if (state.isSaving) {
-                                CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
-                            } else {
-                                Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(stringResource(R.string.btn_save_weather), style = MaterialTheme.typography.labelMedium)
-                            }
+                        if (state.isAcquiringLocation) {
+                            KoReInlineLoading(modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Detecting GPS Location...", style = MaterialTheme.typography.labelMedium)
+                        } else {
+                            Icon(Icons.Default.MyLocation, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(stringResource(R.string.btn_use_gps), style = MaterialTheme.typography.labelMedium)
                         }
                     }
 
+                    CustomTextField(
+                        value = state.city,
+                        onValueChange = onCityChange,
+                        label = stringResource(R.string.label_weather_city),
+                        placeholder = stringResource(R.string.placeholder_weather_city)
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = state.latitude,
+                            onValueChange = onLatChange,
+                            label = { Text(stringResource(R.string.label_weather_lat), style = MaterialTheme.typography.bodyMedium) },
+                            placeholder = { Text(stringResource(R.string.placeholder_weather_lat), style = MaterialTheme.typography.bodyMedium) },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                            textStyle = MaterialTheme.typography.bodyLarge,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                unfocusedContainerColor = Color.Transparent,
+                                focusedContainerColor = Color.Transparent,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                                focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            )
+                        )
+
+                        OutlinedTextField(
+                            value = state.longitude,
+                            onValueChange = onLonChange,
+                            label = { Text(stringResource(R.string.label_weather_lon), style = MaterialTheme.typography.bodyMedium) },
+                            placeholder = { Text(stringResource(R.string.placeholder_weather_lon), style = MaterialTheme.typography.bodyMedium) },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp),
+                            textStyle = MaterialTheme.typography.bodyLarge,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                unfocusedContainerColor = Color.Transparent,
+                                focusedContainerColor = Color.Transparent,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                                focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                                unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            )
+                        )
+                    }
+                }
+
+                // Section: Quick Presets
+                ConfigSection(title = stringResource(R.string.label_city_presets), icon = Icons.Default.Public) {
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        com.leshoraa.kore.domain.model.WeatherLocationConfig.PRESETS.forEach { preset ->
+                            val isSelected = state.city.equals(preset.city, ignoreCase = true)
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { onPresetSelected(preset) },
+                                label = { Text(preset.city, style = MaterialTheme.typography.labelSmall) },
+                                shape = CircleShape,
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                            )
+                        }
+                    }
+                }
+
+                // Section: Timezone Offset
+                ConfigSection(title = stringResource(R.string.label_weather_tz), icon = Icons.Default.Schedule) {
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        listOf(
+                            "WIB (UTC+7)" to 25200,
+                            "WITA (UTC+8)" to 28800,
+                            "WIT (UTC+9)" to 32400,
+                            "GMT (UTC+0)" to 0,
+                            "EST (UTC-5)" to -18000
+                        ).forEach { (label, offsetSec) ->
+                            val isSelected = state.timezoneOffsetSec == offsetSec
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { onTzChange(offsetSec) },
+                                label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                                shape = CircleShape,
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            )
+                        }
+                    }
+                }
+
+                // Section: Spontaneous Ambient Glance Toggle
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.label_weather_enabled),
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = "Periodically preview weather and clock on OLED automatically.",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = state.isEnabled,
+                            onCheckedChange = onEnabledChange
+                        )
+                    }
+                }
+
+                // Actions Footer
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     TextButton(
                         onClick = onDismiss,
-                        enabled = !state.isSaving,
-                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                        enabled = !state.isSaving
                     ) {
                         Text(stringResource(R.string.btn_cancel))
+                    }
+                    
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    OutlinedButton(
+                        onClick = onSyncNow,
+                        enabled = !state.isSaving && isBleConnected,
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.CloudSync, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(stringResource(R.string.btn_sync_now), style = MaterialTheme.typography.labelMedium)
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Button(
+                        onClick = onSave,
+                        enabled = !state.isSaving && isBleConnected,
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        if (state.isSaving) {
+                            KoReInlineLoading(modifier = Modifier.size(18.dp))
+                        } else {
+                            Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(stringResource(R.string.btn_save_weather), style = MaterialTheme.typography.labelMedium)
+                        }
                     }
                 }
             }

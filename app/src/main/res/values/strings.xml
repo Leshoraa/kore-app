@@ -108,9 +108,16 @@
     <string name="btn_enable">ENABLE</string>
     <string name="device_unknown">Unknown Device</string>
 
+    <!-- Tips & Onboarding -->
+    <string name="tip_system_access_title">System Access Required</string>
+    <string name="tip_system_access_desc">Tap to enable Notification Access and disable Battery Optimization for stable background sync.</string>
+    <string name="tip_bluetooth_off_title">Bluetooth is Off</string>
+    <string name="tip_bluetooth_off_desc">Bluetooth is required to connect and control your KoRe hardware.</string>
+
     <!-- Settings -->
     <string name="settings_title">Settings &amp; Optimization</string>
     <string name="settings_theme_palette">Appearance</string>
+    <string name="settings_select_color_palette">Select App Color Palette</string>
     <string name="settings_section_notifications">Notification Rules</string>
     <string name="settings_stability_guards">System Access</string>
     <string name="settings_section_connectivity">Connectivity &amp; Hardware</string>

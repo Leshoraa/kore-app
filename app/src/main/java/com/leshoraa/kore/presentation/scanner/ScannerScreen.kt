@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bluetooth
@@ -17,7 +18,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.leshoraa.kore.R
+import com.leshoraa.kore.presentation.components.KoReInlineLoading
+import com.leshoraa.kore.presentation.components.KoReLoadingScreen
 
+/**
+ * Bluetooth Low Energy (BLE) scanner screen for discovering and connecting to KoRe hardware.
+ */
 @SuppressLint("MissingPermission")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,16 +66,29 @@ fun ScannerScreen(
         val targetName = deviceToConnect?.device?.name ?: stringResource(R.string.device_unknown)
         val isConnecting = isConnectingByDialog || connectionState == BluetoothProfile.STATE_CONNECTING
 
-        AlertDialog(
+        ModalBottomSheet(
             onDismissRequest = {
                 if (!isConnecting) {
                     deviceToConnect = null
                 }
             },
-            title = {
-                Text(if (isConnecting) stringResource(R.string.scanner_connecting) else stringResource(R.string.scanner_connect_device))
-            },
-            text = {
+            dragHandle = { BottomSheetDefaults.DragHandle() },
+            containerColor = MaterialTheme.colorScheme.surface
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = if (isConnecting) stringResource(R.string.scanner_connecting) else stringResource(R.string.scanner_connect_device),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                )
+
                 if (isConnecting) {
                     Row(
                         modifier = Modifier
@@ -78,11 +97,7 @@ fun ScannerScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(28.dp),
-                            strokeWidth = 3.dp,
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                        KoReInlineLoading(modifier = Modifier.size(28.dp))
                         Column {
                             Text(
                                 text = stringResource(R.string.scanner_connecting_to, targetName),
@@ -96,32 +111,43 @@ fun ScannerScreen(
                         }
                     }
                 } else {
-                    Text(stringResource(R.string.scanner_confirm_connect, targetName))
+                    Text(
+                        text = stringResource(R.string.scanner_confirm_connect, targetName),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
                 }
-            },
-            confirmButton = {
-                if (!isConnecting) {
-                    Button(onClick = {
-                        val device = deviceToConnect!!
-                        isConnectingByDialog = true
-                        viewModel.connect(device.device.address, device.device.name)
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(onClick = {
+                        if (isConnecting) {
+                            viewModel.disconnect()
+                            isConnectingByDialog = false
+                        }
+                        deviceToConnect = null
                     }) {
-                        Text(stringResource(R.string.btn_connect))
+                        Text(stringResource(R.string.btn_cancel))
                     }
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    if (isConnecting) {
-                        viewModel.disconnect()
-                        isConnectingByDialog = false
+
+                    if (!isConnecting) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Button(
+                            onClick = {
+                                val device = deviceToConnect!!
+                                isConnectingByDialog = true
+                                viewModel.connect(device.device.address, device.device.name)
+                            },
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(stringResource(R.string.btn_connect))
+                        }
                     }
-                    deviceToConnect = null
-                }) {
-                    Text(stringResource(R.string.btn_cancel))
                 }
             }
-        )
+        }
     }
 
     Scaffold(

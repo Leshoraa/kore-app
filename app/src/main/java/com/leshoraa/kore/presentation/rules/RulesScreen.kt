@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.leshoraa.kore.R
+import com.leshoraa.kore.presentation.components.KoReLoadingScreen
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -135,9 +136,7 @@ fun RulesScreen(
             }
 
             if (isLoading) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
-                }
+                KoReLoadingScreen()
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),

@@ -27,5 +27,8 @@ interface UserPreferencesRepository {
     fun setLastConnectedBleName(name: String?)
     fun getCachedWeatherConfig(): com.leshoraa.kore.domain.model.WeatherLocationConfig
     fun setCachedWeatherConfig(config: com.leshoraa.kore.domain.model.WeatherLocationConfig)
+
+    fun isSystemAccessTipDismissed(): Boolean
+    fun setSystemAccessTipDismissed(dismissed: Boolean)
 }
 

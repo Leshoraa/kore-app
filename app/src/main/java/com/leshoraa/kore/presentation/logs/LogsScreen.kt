@@ -3,6 +3,7 @@ package com.leshoraa.kore.presentation.logs
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DarkMode
@@ -14,12 +15,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.leshoraa.kore.R
 import com.leshoraa.kore.domain.model.NotificationEvent
+import com.leshoraa.kore.presentation.components.KoReLoadingScreen
 import java.text.SimpleDateFormat
 import java.util.*
 
+/**
+ * Screen displaying a historical log of intercepted notifications.
+ * Allows users to review and clear audit logs.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LogsScreen(
@@ -29,30 +36,54 @@ fun LogsScreen(
     onNavigateBack: (() -> Unit)? = null
 ) {
     val logs by viewModel.logs.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
     if (showDeleteConfirm) {
-        AlertDialog(
+        ModalBottomSheet(
             onDismissRequest = { showDeleteConfirm = false },
-            title = { Text(stringResource(R.string.dialog_clear_logs_title)) },
-            text = { Text(stringResource(R.string.dialog_clear_logs_msg)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.clearLogs()
-                        showDeleteConfirm = false
-                    },
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+            dragHandle = { BottomSheetDefaults.DragHandle() },
+            containerColor = MaterialTheme.colorScheme.surface
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 32.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.dialog_clear_logs_title),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = stringResource(R.string.dialog_clear_logs_msg),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(stringResource(R.string.btn_clear))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirm = false }) {
-                    Text(stringResource(R.string.btn_cancel))
+                    TextButton(onClick = { showDeleteConfirm = false }) {
+                        Text(stringResource(R.string.btn_cancel))
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            viewModel.clearLogs()
+                            showDeleteConfirm = false
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(stringResource(R.string.btn_clear))
+                    }
                 }
             }
-        )
+        }
     }
 
     Scaffold(
@@ -82,7 +113,9 @@ fun LogsScreen(
             )
         }
     ) { padding ->
-        if (logs.isEmpty()) {
+        if (isLoading) {
+            KoReLoadingScreen()
+        } else if (logs.isEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()

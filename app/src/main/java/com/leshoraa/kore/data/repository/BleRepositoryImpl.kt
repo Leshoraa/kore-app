@@ -20,6 +20,7 @@ class BleRepositoryImpl(
     override val isBluetoothEnabled = bleManager.isBluetoothEnabled
     override val deviceConfigFlow = bleManager.deviceConfigFlow
     override val weatherConfigFlow = bleManager.weatherConfigFlow
+    override val telemetryFlow = bleManager.telemetryFlow
 
     override fun connect(address: String, deviceName: String?) {
         bleManager.connect(address, deviceName)
@@ -51,6 +52,18 @@ class BleRepositoryImpl(
 
     override suspend fun queryDeviceConfig(): Result<Unit> {
         return bleManager.queryDeviceConfig()
+    }
+
+    override suspend fun queryTelemetry(): Result<Unit> {
+        return bleDispatcher.dispatchQueryTelemetry()
+    }
+
+    override suspend fun startTelemetryStreaming(intervalMs: Long): Result<Unit> {
+        return bleDispatcher.dispatchTelemetryStreaming(true, intervalMs)
+    }
+
+    override suspend fun stopTelemetryStreaming(): Result<Unit> {
+        return bleDispatcher.dispatchTelemetryStreaming(false)
     }
 
     override suspend fun showClock(): Result<Unit> {

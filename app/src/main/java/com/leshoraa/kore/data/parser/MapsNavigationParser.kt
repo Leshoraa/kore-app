@@ -183,7 +183,7 @@ class MapsNavigationParser {
     }
 
     private fun classifyIcon(text: String): String {
-        return ManeuverRule.values().firstOrNull { it.matches(text) }?.icon ?: "straight"
+        return ManeuverRule.entries.firstOrNull { it.matches(text) }?.icon ?: "straight"
     }
 
     private fun extractInstruction(title: String, text: String): String {
