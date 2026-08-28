@@ -175,5 +175,24 @@ object ServiceLocator {
             provideBleRepository(context)
         )
     }
+
+    fun provideMomentRepository(context: Context): com.leshoraa.kore.domain.repository.MomentRepository {
+        return com.leshoraa.kore.data.repository.MomentRepositoryImpl(
+            context.applicationContext,
+            provideDatabase(context).deskMomentDao()
+        )
+    }
+
+    fun provideCaptureMomentUseCase(context: Context): com.leshoraa.kore.domain.usecase.CaptureMomentUseCase {
+        return com.leshoraa.kore.domain.usecase.CaptureMomentUseCase(provideMomentRepository(context))
+    }
+
+    fun provideGetDeskMomentsUseCase(context: Context): com.leshoraa.kore.domain.usecase.GetDeskMomentsUseCase {
+        return com.leshoraa.kore.domain.usecase.GetDeskMomentsUseCase(provideMomentRepository(context))
+    }
+
+    fun provideDeleteMomentUseCase(context: Context): com.leshoraa.kore.domain.usecase.DeleteMomentUseCase {
+        return com.leshoraa.kore.domain.usecase.DeleteMomentUseCase(provideMomentRepository(context))
+    }
 }
 

@@ -31,15 +31,28 @@ class PreferencesManager(context: Context) : UserPreferencesRepository {
         private const val KEY_WEATHER_ENABLED = "key_weather_enabled"
         private const val KEY_WEATHER_TZ = "key_weather_tz"
         private const val KEY_SYSTEM_ACCESS_TIP_DISMISSED = "key_system_access_tip_dismissed"
+        private const val KEY_MOMENT_AUTO_CAPTURE_ENABLED = "key_moment_auto_capture_enabled"
+        private const val KEY_MOMENT_CAPTURE_INTERVAL_MIN = "key_moment_capture_interval_min"
         
         const val DEFAULT_BRIGHTNESS = 100
         const val MIN_BRIGHTNESS = 1
         const val MAX_BRIGHTNESS = 100
         const val DEFAULT_CAMERA_HOST = "192.168.18.16"
+        const val DEFAULT_MOMENT_INTERVAL_MIN = 60
     }
 
     private val sharedPreferences: SharedPreferences =
         context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+    private val _momentAutoCaptureEnabled = MutableStateFlow(
+        sharedPreferences.getBoolean(KEY_MOMENT_AUTO_CAPTURE_ENABLED, false)
+    )
+    override val momentAutoCaptureEnabled: StateFlow<Boolean> = _momentAutoCaptureEnabled.asStateFlow()
+
+    private val _momentCaptureIntervalMinutes = MutableStateFlow(
+        sharedPreferences.getInt(KEY_MOMENT_CAPTURE_INTERVAL_MIN, DEFAULT_MOMENT_INTERVAL_MIN)
+    )
+    override val momentCaptureIntervalMinutes: StateFlow<Int> = _momentCaptureIntervalMinutes.asStateFlow()
 
     private val _brightness = MutableStateFlow(
         sharedPreferences.getInt(KEY_BRIGHTNESS, DEFAULT_BRIGHTNESS).coerceIn(MIN_BRIGHTNESS, MAX_BRIGHTNESS)
@@ -163,6 +176,21 @@ class PreferencesManager(context: Context) : UserPreferencesRepository {
 
     override fun setSystemAccessTipDismissed(dismissed: Boolean) {
         sharedPreferences.edit().putBoolean(KEY_SYSTEM_ACCESS_TIP_DISMISSED, dismissed).apply()
+    }
+
+    override fun isMomentAutoCaptureEnabled(): Boolean = _momentAutoCaptureEnabled.value
+
+    override fun setMomentAutoCaptureEnabled(enabled: Boolean) {
+        _momentAutoCaptureEnabled.value = enabled
+        sharedPreferences.edit().putBoolean(KEY_MOMENT_AUTO_CAPTURE_ENABLED, enabled).apply()
+    }
+
+    override fun getMomentCaptureIntervalMinutes(): Int = _momentCaptureIntervalMinutes.value
+
+    override fun setMomentCaptureIntervalMinutes(minutes: Int) {
+        val clamped = minutes.coerceIn(15, 360)
+        _momentCaptureIntervalMinutes.value = clamped
+        sharedPreferences.edit().putInt(KEY_MOMENT_CAPTURE_INTERVAL_MIN, clamped).apply()
     }
 
     private fun valToExpressionCode(value: Int): Int? {

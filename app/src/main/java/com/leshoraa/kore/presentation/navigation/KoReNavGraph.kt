@@ -88,13 +88,32 @@ fun KoReNavGraph(
                     ServiceLocator.provideUpdateCameraSensorUseCase(context),
                     ServiceLocator.providePreferencesManager(context),
                     ServiceLocator.provideCameraVisionRepository(context),
-                    ServiceLocator.provideBleRepository(context)
+                    ServiceLocator.provideBleRepository(context),
+                    ServiceLocator.provideGetDeskMomentsUseCase(context),
+                    ServiceLocator.provideCaptureMomentUseCase(context)
                 )
             }
             CameraVisionScreen(
                 viewModel = viewModel,
                 isDarkTheme = darkTheme,
-                onToggleTheme = onToggleTheme
+                onToggleTheme = onToggleTheme,
+                onNavigateToMoments = { navController.navigate("moments") }
+            )
+        }
+        composable("moments") {
+            val viewModel: com.leshoraa.kore.presentation.moments.MomentsViewModel = viewModel {
+                com.leshoraa.kore.presentation.moments.MomentsViewModel(
+                    ServiceLocator.provideGetDeskMomentsUseCase(context),
+                    ServiceLocator.provideCaptureMomentUseCase(context),
+                    ServiceLocator.provideDeleteMomentUseCase(context),
+                    ServiceLocator.providePreferencesManager(context)
+                )
+            }
+            com.leshoraa.kore.presentation.moments.MomentsScreen(
+                viewModel = viewModel,
+                isDarkTheme = darkTheme,
+                onToggleTheme = onToggleTheme,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
         composable("scanner") {
@@ -159,7 +178,8 @@ fun KoReNavGraph(
                     ServiceLocator.provideSyncPhoneWeatherUseCase(context),
                     ServiceLocator.provideShowClockUseCase(context),
                     ServiceLocator.provideShowWeatherUseCase(context),
-                    ServiceLocator.provideBleRepository(context)
+                    ServiceLocator.provideBleRepository(context),
+                    ServiceLocator.providePreferencesManager(context)
                 )
             }
             SettingsScreen(

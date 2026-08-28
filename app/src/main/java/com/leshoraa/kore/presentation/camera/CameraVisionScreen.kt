@@ -2,28 +2,41 @@ package com.leshoraa.kore.presentation.camera
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.carousel.HorizontalMultiBrowseCarousel
+import androidx.compose.material3.carousel.rememberCarouselState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -32,14 +45,22 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import androidx.collection.LruCache
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.File
 import com.leshoraa.kore.R
 import com.leshoraa.kore.domain.model.CameraSensorParams
+import com.leshoraa.kore.domain.model.DeskMoment
 import com.leshoraa.kore.domain.model.StreamConnectionState
 import com.leshoraa.kore.domain.model.TelemetryData
 import com.leshoraa.kore.presentation.components.KoReInlineLoading
 import com.leshoraa.kore.presentation.components.KoReLoadingScreen
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
-
 
 /**
  * Main Vision & Telemetry screen.
@@ -50,7 +71,8 @@ import java.util.Locale
 fun CameraVisionScreen(
     viewModel: CameraVisionViewModel,
     isDarkTheme: Boolean = false,
-    onToggleTheme: () -> Unit = {}
+    onToggleTheme: () -> Unit = {},
+    onNavigateToMoments: () -> Unit = {}
 ) {
     val connectionState by viewModel.connectionState.collectAsState()
     val isStreamActive by viewModel.isStreamActive.collectAsState()
@@ -188,7 +210,19 @@ fun CameraVisionScreen(
                 onConfigureIp = { showIpDialog = true }
             )
 
-            // 4. AI Metrics Grid
+            // 4. Desk Moments Card Carousel (Material 3 Carousel with Parallax & Size Morphing)
+            val moments by viewModel.moments.collectAsState()
+            val isCapturingMoment by viewModel.isCapturingMoment.collectAsState()
+
+            DeskMomentsCarousel(
+                moments = moments,
+                isCapturing = isCapturingMoment,
+                onMomentClick = { onNavigateToMoments() },
+                onShowAllClick = onNavigateToMoments,
+                onCaptureClick = { viewModel.captureInstantMoment() }
+            )
+
+            // 5. Vision Metrics Grid
             VisionMetricsSection(telemetry = telemetry)
 
             // 5. Affective Dynamics Section
@@ -1079,5 +1113,195 @@ private fun SensorToggleItem(
     ) {
         Text(text = title, style = MaterialTheme.typography.bodyMedium)
         Switch(checked = checked, onCheckedChange = onCheckedChange)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DeskMomentsCarousel(
+    moments: List<DeskMoment>,
+    isCapturing: Boolean,
+    onMomentClick: (DeskMoment) -> Unit,
+    onShowAllClick: () -> Unit,
+    onCaptureClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
+
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        // Carousel Header: Title, Count badge, and Show all button
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "Desk Moments",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                if (moments.isNotEmpty()) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer
+                    ) {
+                        Text(
+                            text = "${moments.size}",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            }
+
+            TextButton(
+                onClick = onShowAllClick,
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+            ) {
+                Text(
+                    text = "Show all",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+
+        if (moments.isEmpty()) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(130.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .clickable(onClick = onCaptureClick),
+                shape = RoundedCornerShape(24.dp),
+                color = MaterialTheme.colorScheme.surfaceContainer
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(20.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            if (isCapturing) {
+                                KoReInlineLoading(modifier = Modifier.size(20.dp))
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.CameraAlt,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        Text(
+                            text = "No Desk Moments Yet",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Tap here to capture your first candid desk snapshot with KoRe.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        } else {
+            val carouselState = rememberCarouselState { moments.size }
+            HorizontalMultiBrowseCarousel(
+                state = carouselState,
+                preferredItemWidth = 190.dp,
+                itemSpacing = 8.dp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(190.dp)
+            ) { index ->
+                val moment = moments[index]
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .maskClip(RoundedCornerShape(24.dp))
+                        .clickable { onMomentClick(moment) }
+                ) {
+                    com.leshoraa.kore.core.common.LazyDeskMomentImage(
+                        filePath = moment.filePath,
+                        contentDescription = "Desk moment snapshot",
+                        contentScale = ContentScale.Crop,
+                        isThumbnail = true,
+                        modifier = Modifier.fillMaxSize()
+                    )
+
+                    // Scrim overlay
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(72.dp)
+                            .align(Alignment.BottomCenter)
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color.Transparent,
+                                        Color.Black.copy(alpha = 0.72f)
+                                    )
+                                )
+                            )
+                    )
+
+                    // Text Info
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(12.dp)
+                    ) {
+                        Text(
+                            text = moment.expressionName.ifBlank { "Desk Moment" },
+                            style = MaterialTheme.typography.labelLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            maxLines = 1
+                        )
+                        Text(
+                            text = timeFormat.format(Date(moment.timestamp)),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White.copy(alpha = 0.85f)
+                        )
+                    }
+                }
+            }
+        }
     }
 }

@@ -4,6 +4,7 @@
     <!-- Navigation -->
     <string name="nav_dashboard">Dashboard</string>
     <string name="nav_vision">Vision</string>
+    <string name="nav_moments">Moments</string>
     <string name="nav_filters">Filters</string>
     <string name="nav_logs">Logs</string>
     <string name="nav_settings">Settings</string>

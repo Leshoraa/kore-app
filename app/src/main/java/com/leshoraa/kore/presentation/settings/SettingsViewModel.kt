@@ -53,7 +53,8 @@ class SettingsViewModel(
     private val syncPhoneWeatherUseCase: com.leshoraa.kore.domain.usecase.SyncPhoneWeatherUseCase,
     private val showClockUseCase: com.leshoraa.kore.domain.usecase.ShowClockUseCase,
     private val showWeatherUseCase: com.leshoraa.kore.domain.usecase.ShowWeatherUseCase,
-    private val bleRepository: BleRepository
+    private val bleRepository: BleRepository,
+    private val userPreferencesRepository: com.leshoraa.kore.domain.repository.UserPreferencesRepository? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DeviceConfigUiState())
@@ -61,6 +62,20 @@ class SettingsViewModel(
 
     private val _weatherState = MutableStateFlow(WeatherConfigUiState())
     val weatherState: StateFlow<WeatherConfigUiState> = _weatherState.asStateFlow()
+
+    val momentAutoCaptureEnabled: StateFlow<Boolean> =
+        userPreferencesRepository?.momentAutoCaptureEnabled ?: MutableStateFlow(false).asStateFlow()
+
+    val momentCaptureIntervalMinutes: StateFlow<Int> =
+        userPreferencesRepository?.momentCaptureIntervalMinutes ?: MutableStateFlow(60).asStateFlow()
+
+    fun toggleMomentAutoCapture(enabled: Boolean) {
+        userPreferencesRepository?.setMomentAutoCaptureEnabled(enabled)
+    }
+
+    fun setMomentCaptureInterval(minutes: Int) {
+        userPreferencesRepository?.setMomentCaptureIntervalMinutes(minutes)
+    }
 
     init {
         viewModelScope.launch {

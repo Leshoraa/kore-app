@@ -9,13 +9,14 @@ import androidx.room.RoomDatabase
  * Main Room Database for KoRe application settings and logs.
  */
 @Database(
-    entities = [AppRuleEntity::class, NotificationLogEntity::class],
-    version = 1,
+    entities = [AppRuleEntity::class, NotificationLogEntity::class, DeskMomentEntity::class],
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun ruleDao(): RuleDao
     abstract fun notificationLogDao(): NotificationLogDao
+    abstract fun deskMomentDao(): DeskMomentDao
 
     companion object {
         @Volatile
@@ -27,7 +28,9 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "kore_database"
-                ).build()
+                )
+                .fallbackToDestructiveMigration()
+                .build()
                 INSTANCE = instance
                 instance
             }

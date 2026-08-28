@@ -33,7 +33,9 @@ class CameraVisionViewModel(
     private val updateCameraSensorUseCase: UpdateCameraSensorUseCase,
     private val userPreferencesRepository: UserPreferencesRepository,
     private val cameraVisionRepository: CameraVisionRepository,
-    private val bleRepository: BleRepository? = null
+    private val bleRepository: BleRepository? = null,
+    private val getDeskMomentsUseCase: com.leshoraa.kore.domain.usecase.GetDeskMomentsUseCase? = null,
+    private val captureMomentUseCase: com.leshoraa.kore.domain.usecase.CaptureMomentUseCase? = null
 ) : ViewModel() {
 
     companion object {
@@ -58,6 +60,12 @@ class CameraVisionViewModel(
 
     private val _telemetry = MutableStateFlow<TelemetryData?>(null)
     val telemetry: StateFlow<TelemetryData?> = _telemetry.asStateFlow()
+
+    private val _moments = MutableStateFlow<List<com.leshoraa.kore.domain.model.DeskMoment>>(emptyList())
+    val moments: StateFlow<List<com.leshoraa.kore.domain.model.DeskMoment>> = _moments.asStateFlow()
+
+    private val _isCapturingMoment = MutableStateFlow(false)
+    val isCapturingMoment: StateFlow<Boolean> = _isCapturingMoment.asStateFlow()
 
     private val _sensorParams = MutableStateFlow(CameraSensorParams())
     val sensorParams: StateFlow<CameraSensorParams> = _sensorParams.asStateFlow()
@@ -96,8 +104,29 @@ class CameraVisionViewModel(
             }
         }
 
+        // Collect saved desk moments for the carousel
+        getDeskMomentsUseCase?.let { getMoments ->
+            viewModelScope.launch {
+                getMoments().collect { list ->
+                    _moments.value = list
+                }
+            }
+        }
+
         // Start continuous background HTTP telemetry polling (independent of video stream)
         startContinuousTelemetryPolling()
+    }
+
+    fun captureInstantMoment() {
+        if (_isCapturingMoment.value) return
+        val host = hostIp.value
+        if (host.isBlank() || captureMomentUseCase == null) return
+
+        viewModelScope.launch {
+            _isCapturingMoment.value = true
+            captureMomentUseCase.invoke(host)
+            _isCapturingMoment.value = false
+        }
     }
 
     private fun startContinuousTelemetryPolling() {

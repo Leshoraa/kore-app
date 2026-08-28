@@ -200,10 +200,11 @@ fun DashboardScreen(
             item(key = "log_header", contentType = "header") {
                 Text(
                     text = stringResource(R.string.live_event_log),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.secondary
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(top = 16.dp, bottom = 10.dp, start = 4.dp)
                 )
-                Spacer(modifier = Modifier.height(8.dp))
             }
 
             item(key = "test_section", contentType = "card") {

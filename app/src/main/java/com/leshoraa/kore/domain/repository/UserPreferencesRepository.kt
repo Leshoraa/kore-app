@@ -30,5 +30,12 @@ interface UserPreferencesRepository {
 
     fun isSystemAccessTipDismissed(): Boolean
     fun setSystemAccessTipDismissed(dismissed: Boolean)
+
+    val momentAutoCaptureEnabled: StateFlow<Boolean>
+    val momentCaptureIntervalMinutes: StateFlow<Int>
+    fun isMomentAutoCaptureEnabled(): Boolean
+    fun setMomentAutoCaptureEnabled(enabled: Boolean)
+    fun getMomentCaptureIntervalMinutes(): Int
+    fun setMomentCaptureIntervalMinutes(minutes: Int)
 }
 
